@@ -37,10 +37,38 @@ void sceneMenu(float t) {
 
     if (uiButton({ bx,512,128,40 }, "规则 (H)", DARKGRAY, false, 19)) { prevScene = MENU; scene = HELP; }
     if (uiButton({ bx + 136,512,128,40 }, "成就墙", GOLD, false, 19)) scene = ACHIEVE;
+    // 新成就红点：已解锁数量超过"看过"的数量时，在成就墙按钮右上角提示
+    {
+        int achDone = 0;
+        for (int i = 0; i < A_COUNT; ++i) if (rec.achUnlocked[i]) ++achDone;
+        if (achDone > rec.achSeen) {
+            float px = bx + 136 + 128 - 9, py = 512 + 9;
+            DrawCircleV({ px,py }, 9, RED);
+            DrawCircleV({ px,py }, 9, Fade(RAYWHITE, 0.35f + 0.35f * sinf(t * 5)));
+            txtC(to_string(achDone - rec.achSeen), px, py - 8, 13, RAYWHITE);
+        }
+    }
     if (uiButton({ bx + 272,512,128,40 }, "星尘工坊", VIOLET, false, 19)) scene = META;
     if (uiButton({ bx,560,196,40 }, "数据中心", SKYBLUE, false, 19)) scene = STATS;
     if (uiButton({ bx + 204,560,196,40 }, "全屏 (F11)", DARKGRAY, false, 19)) toggleFull();
     if (uiButton({ bx,608,400,36 }, "关于 / 用户许可协议", DARKGRAY, false, 17)) { prevScene = MENU; scene = LICENSE; }
+
+    // 左侧面板下方的两个入口：继续游戏（有存档时）与新手引导（教程未通关时）
+    if (hasSavedRun()) {
+        if (uiButton({ 40,548,250,42 }, "继续游戏 / 导入存档", GREEN, false, 19)) {
+            if (!loadRun()) addLog("对局存档已损坏，无法继续。", RED);
+        }
+    }
+    if (rec.tutProgress < 8) {
+        float gy = hasSavedRun() ? 596.0f : 548.0f;
+        string gt = rec.tutProgress == 0 ? "新 手 引 导（推荐）"
+                                         : "继续新手引导 " + to_string(rec.tutProgress + 1) + " / 8";
+        if (uiButton({ 40,gy,250,42 }, gt, Color{ 60,170,110,255 }, false, 19)) {
+            tutIdx = std::clamp(rec.tutProgress, 0, 7);
+            scene = TUT_BRIEF;
+            playSfx(sfxClick);
+        }
+    }
 
     uiPanel({ 40,132,250,400 }, 0.06f);
     txtS("历史最佳记录", 62, 143, 22, GOLD);
@@ -199,6 +227,9 @@ void sceneAchieve(float t) {
          VW / 2.0f, 62, 19, RAYWHITE);
     DrawRectangleRounded({ 400,90,480,10 }, 1.0f, 8, Color{ 44,48,66,255 });
     DrawRectangleRounded({ 400,90,480 * (done / (float)A_COUNT),10 }, 1.0f, 8, GOLD);
+
+    // 进入成就墙即视为"已查看"：清除主菜单的新成就红点
+    if (rec.achSeen != done) { rec.achSeen = done; saveRecords(); }
 
     // 分类页签
     const char* tabs[6] = { "全部","铜级","银级","金级","彩虹级","隐藏" };
@@ -641,7 +672,18 @@ void scenePlay(float dt, float t) {
                 : mode == M_TUTORIAL ? string("教程 · 第 ") + to_string(tutIdx + 1) + " 关"
                 : string("经典 · ") + CFG[diff].name;
     txt(mtag, 170, 17, 22, GOLD);
-    txt("H 规则   F11 全屏   M 音效", VW - 320.0f, 17, 20, GRAY);
+    txt("H 规则   F11 全屏   M 音效", 640, 20, 18, GRAY);
+
+    // 对局内快捷操作：存档（可回主菜单继续）与退出（放弃本局回到主菜单）
+    if (uiButton({ VW - 268, 8, 120, 32 }, "存档", SKYBLUE, false, 18)) {
+        saveRun();
+        addLog("已存档：回到主菜单后选【继续游戏 / 导入存档】即可接着玩。", SKYBLUE);
+        playSfx(sfxClick);
+    }
+    if (uiButton({ VW - 140, 8, 120, 32 }, "退出", Color{ 150,70,70,255 }, false, 18)) {
+        scene = MENU;
+        playSfx(sfxClick);
+    }
 
     txt("回合 " + to_string(turnNo) + (maxTurn > 9999 ? "" : "/" + to_string(maxTurn)), 40, 54, 25, RAYWHITE);
     txt("灵能 " + to_string(energy) + ((mode == M_CLASSIC || mode == M_DAILY) ? "/" + to_string(winEnergy) : ""),

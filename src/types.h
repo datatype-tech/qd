@@ -165,6 +165,7 @@ struct Records {
     int histN = 0, hist[12] = { 0 };
     bool luxUnlocked = false, luxOn = true;
     bool licenseAgreed = false;   // 是否已同意版权/反编译声明
+    int  achSeen = 0;             // 玩家已查看过的成就数量（用于成就墙红点提示）
 };
 
 // ==================== 规则手册 ====================

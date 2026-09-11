@@ -313,6 +313,8 @@ void pushHistory(int s) {
 
 void gotoResult() {
     shopOpen = false; copied = false;
+    // 对局已结束：清掉中途存档，避免主菜单"继续游戏"载入一局已打完的游戏
+    clearRunSave();
     winGame = ((mode == M_CLASSIC || mode == M_DAILY) && energy >= winEnergy);
     bool good = (mode == M_TUTORIAL) ? tutPassed : winGame;
     playSfx(good ? sfxWin : sfxLose);

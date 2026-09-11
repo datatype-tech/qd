@@ -4,7 +4,10 @@
 #include "save.h"
 #include "state.h"
 #include "data.h"
+#include "util.h"
 #include <fstream>
+#include <sstream>
+#include <cstdio>
 #include <algorithm>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -54,6 +57,8 @@ void loadRecords() {
     if (okRead && (f >> lu)) { f >> lo; r.luxUnlocked = (lu != 0); r.luxOn = (lo != 0); }
     int la = 0;
     if (okRead && (f >> la)) { r.licenseAgreed = (la != 0); }   // 老存档没有这个字段，读不到就维持默认 false
+    int as = 0;
+    if (okRead && (f >> as)) { r.achSeen = as; }                // 同上：老存档缺此字段时默认 0
 
     if (!okRead) { saveWasLegacy = true; return; }   // 档案损坏：不采用
 
@@ -104,6 +109,7 @@ void saveRecords() {
     for (int i = 0; i < rec.histN; ++i) f << rec.hist[i] << " ";
     f << "\n" << (rec.luxUnlocked ? 1 : 0) << " " << (rec.luxOn ? 1 : 0) << "\n";
     f << (rec.licenseAgreed ? 1 : 0) << "\n";
+    f << rec.achSeen << "\n";
 
 #ifdef __EMSCRIPTEN__
     // 网页版：MEMFS 是内存文件系统，必须把改动同步回 IndexedDB 才能持久保存。
@@ -117,4 +123,97 @@ void saveRecords() {
         }, 800);
     });
 #endif
+}
+
+// ============================================================
+//  对局存档：把"当前这一局"的状态写进 qg_run.txt
+//  与上面的玩家档案（成就/星尘等）分开，互不影响。
+//  网页版走 IDBFS，因此写完同样需要 syncfs 落盘。
+// ============================================================
+static const char* RUN_TAG = "QGRUN1";
+
+static void syncRunStore() {
+#ifdef __EMSCRIPTEN__
+    EM_ASM({ FS.syncfs(false, function(err){ if(err) console.log('[QG] 对局存档保存失败:', err); }); });
+#endif
+}
+
+bool hasSavedRun() {
+    std::ifstream f("qg_run.txt");
+    if (!f) return false;
+    string tag;
+    if (!(f >> tag) || tag != RUN_TAG) return false;
+    return true;
+}
+
+void clearRunSave() {
+    std::remove("qg_run.txt");
+    syncRunStore();
+}
+
+void saveRun() {
+    std::ofstream f("qg_run.txt");
+    if (!f) return;
+    f << RUN_TAG << "\n";
+    f << mode << " " << diff << " " << tutIdx << "\n";
+    f << turnNo << " " << energy << " " << combo << " " << maxCombo << " " << wave
+      << " " << (int)tool << " " << entSel << "\n";
+    f << lensLv << " " << stableLv << " " << ampLv << " " << plantCost
+      << " " << maxTurn << " " << winEnergy << "\n";
+    f << medReadyTurn << " " << shieldCharges << " " << eyeCharges << " " << luckCharges
+      << " " << entropyCut << " " << springTurns << "\n";
+    f << shopSlot[0] << " " << shopSlot[1] << " " << shopSlot[2] << " " << shopRefreshTurn << "\n";
+    f << riftThisRun << " " << catStreak << " " << obsThisRun << " " << entUsedRun
+      << " " << shopUsedRun << " " << minEnergyRun << "\n";
+    f << statObs << " " << statMatObs << " " << statEntSync << " " << statBuy
+      << " " << flowers << " " << cats << "\n";
+    for (int i = 0; i < SIZE * SIZE; ++i)
+        f << (int)grid[i].st << " " << grid[i].mat << " " << grid[i].partner << " " << grid[i].life << " ";
+    f << "\n";
+    std::ostringstream rs;
+    rs << rng;
+    f << rs.str() << "\n";
+    f.close();
+    syncRunStore();
+}
+
+bool loadRun() {
+    std::ifstream f("qg_run.txt");
+    if (!f) return false;
+    string tag;
+    if (!(f >> tag) || tag != RUN_TAG) return false;
+
+    int m = 0, d = 0, ti = 0;
+    if (!(f >> m >> d >> ti)) return false;
+    mode = (Mode)m; diff = d; tutIdx = ti;
+    int tl = 0;
+    if (!(f >> turnNo >> energy >> combo >> maxCombo >> wave >> tl >> entSel)) return false;
+    tool = (Tool)tl;
+    if (!(f >> lensLv >> stableLv >> ampLv >> plantCost >> maxTurn >> winEnergy)) return false;
+    if (!(f >> medReadyTurn >> shieldCharges >> eyeCharges >> luckCharges >> entropyCut >> springTurns)) return false;
+    if (!(f >> shopSlot[0] >> shopSlot[1] >> shopSlot[2] >> shopRefreshTurn)) return false;
+    if (!(f >> riftThisRun >> catStreak >> obsThisRun >> entUsedRun >> shopUsedRun >> minEnergyRun)) return false;
+    if (!(f >> statObs >> statMatObs >> statEntSync >> statBuy >> flowers >> cats)) return false;
+
+    grid.assign(SIZE * SIZE, Cell{});
+    for (int i = 0; i < SIZE * SIZE; ++i) {
+        int st = 0, mat = 0, partner = -1, life = 0;
+        if (!(f >> st >> mat >> partner >> life)) return false;
+        grid[i] = Cell{ (CellSt)st, mat, partner, life };
+    }
+    string rngLine;
+    if (!(f >> rngLine)) return false;
+    std::istringstream rs(rngLine);
+    rs >> rng;
+
+    // 修正：避免恢复出不合理的数值（例如损坏的存档）
+    turnNo = std::max(1, turnNo);
+    energy = std::max(0, energy);
+    entSel = -1;
+    shopOpen = false; copied = false;
+    winGame = false; newRecord = false;
+    logs.clear(); floats.clear(); parts.clear(); shocks.clear();
+    addLog("已载入对局存档，欢迎回来继续耕耘。", GREEN);
+    scene = PLAY;
+    return true;
 }
