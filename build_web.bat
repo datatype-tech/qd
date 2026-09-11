@@ -33,9 +33,9 @@ cd /d %~dp0
   -I%RAYLIB_DIR% -L%RAYLIB_DIR% -lraylib ^
   -o web\index.html ^
   --shell-file web\shell.html ^
-  --preload-file web\fonts\font.ttf@/fonts/font.ttf ^
-  --preload-file web\fonts\font_title.ttf@/fonts/font_title.ttf ^
-  --preload-file web\text.bin@/data/text.bin ^
+  --embed-file web\fonts\font.ttf@/fonts/font.ttf ^
+  --embed-file web\fonts\font_title.ttf@/fonts/font_title.ttf ^
+  --embed-file web\text.bin@/data/text.bin ^
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=134217728 ^
   -sASYNCIFY -sFORCE_FILESYSTEM=1 -lidbfs.js ^
   -sEXPORTED_RUNTIME_METHODS=ccall,HEAPF32,HEAPU8,HEAP16,HEAPU16,HEAP32,HEAPU32,HEAPF64 ^
