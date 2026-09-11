@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>量子花园 Quantum Garden</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#07090f;display:flex;
+            align-items:center;justify-content:center;overflow:hidden}
+  canvas{background:#000;outline:none;border-radius:4px}
+</style>
+</head>
+<body>
+<pre id="errbox" style="display:none;position:fixed;left:8px;top:8px;z-index:99;
+     color:#ff9;background:#300;padding:10px;font:13px monospace;white-space:pre-wrap;
+     max-width:90vw;max-height:80vh;overflow:auto"></pre>
+<script>
+  // 把运行期错误显示到页面左上角，方便反馈排查
+  window.onerror = function(msg, src, line, col) {
+    var b = document.getElementById('errbox');
+    b.style.display = 'block';
+    b.textContent += msg + '\n  at ' + (src||'?') + ':' + line + ':' + col + '\n';
+  };
+</script>
+<canvas id="canvas" width="1280" height="720"
+        oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
+<script>
+  // 新版 Emscripten 要求显式提供 Module.canvas（否则运行时初始化时报
+  // "Cannot read properties of undefined (reading 'addEventListener')"）
+  // 必须在加载 index.js 之前定义好。
+  // print/printErr：把 wasm 侧 stdout/stderr（raylib 的 INFO/ERROR 日志）
+  // 转存到页面错误框，便于黑屏时排查。
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    print: function(t) {
+      console.log(t);                       // 全部输出同步到控制台，便于排查
+      var b = document.getElementById('errbox');
+      if (t.indexOf('INFO:') === -1) { b.style.display = 'block'; b.textContent += t + '\n'; }
+    },
+    printErr: function(t) {
+      // 本游戏强制 WebGL2(OpenGL ES 3.0)，NPOT 纹理 / VAO 等均为核心能力；
+      // 而 raylib 检测的是 ES2 扩展（GL_OES_texture_npot、GL_OES_vertex_array_object），
+      // 因此 "WARNING: GL: ... extension not found" 在本工程里必然是误报，
+      // 无任何诊断价值 —— 控制台与错误框都不再显示。
+      // 若日后改用 WebGL1 再移除该过滤。
+      if (t.indexOf('WARNING: GL:') !== -1 &&
+          t.indexOf('extension not found') !== -1) {
+        return;
+      }
+      console.warn(t);
+      var b = document.getElementById('errbox');
+      b.style.display = 'block';
+      b.textContent += t + '\n';
+    }
+  };
+</script>
+<script>
+  // 画布随窗口等比缩放（保持 16:9），raylib 负责内部渲染分辨率
+  (function(){
+    var c = document.getElementById('canvas');
+    function fit(){
+      var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+      c.style.width  = Math.floor(1280 * s) + 'px';
+      c.style.height = Math.floor(720  * s) + 'px';
+    }
+    window.addEventListener('resize', fit); fit();
+    c.focus();
+  })();
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
