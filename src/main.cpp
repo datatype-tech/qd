@@ -122,7 +122,18 @@ static void frameOnce() {
 
 static void webInitAndRun() {
     SetConfigFlags(FLAG_VSYNC_HINT);
-    InitWindow(VW, VH, "Quantum Garden 6.3");
+    // 【清晰度关键】网页版以前用固定的 1280x720 画布，再由浏览器 CSS 拉伸到
+    // 整个窗口（如 1920 宽），等于整屏被位图放大 → 所有文字发虚。
+    // 这里改成用"浏览器窗口的实际物理像素"初始化渲染分辨率，游戏内部再按
+    // gScale 放大内容；画布与显示 1:1（或按 devicePixelRatio），文字恢复清晰。
+    int initW = EM_ASM_INT({ return Math.floor(window.innerWidth  * (window.devicePixelRatio || 1)); });
+    int initH = EM_ASM_INT({ return Math.floor(window.innerHeight * (window.devicePixelRatio || 1)); });
+    if (initW < 320 || initH < 240) { initW = VW; initH = VH; }
+    InitWindow(initW, initH, "Quantum Garden 6.3");
+    EM_ASM({
+        Module.canvas.style.width  = window.innerWidth  + 'px';
+        Module.canvas.style.height = window.innerHeight + 'px';
+    });
     SetTargetFPS(60);
     SetExitKey(0);
     // 先解密协议文本，再建字体图集（字库扫描需要用到协议内容）
