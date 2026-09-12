@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>量子花园 Quantum Garden</title>
+<title>閲忓瓙鑺卞洯 Quantum Garden</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#07090f;display:flex;
             align-items:center;justify-content:center;overflow:hidden}
@@ -15,8 +15,7 @@
      color:#ff9;background:#300;padding:10px;font:13px monospace;white-space:pre-wrap;
      max-width:90vw;max-height:80vh;overflow:auto"></pre>
 <script>
-  // 把运行期错误显示到页面左上角，方便反馈排查
-  window.onerror = function(msg, src, line, col) {
+  // 鎶婅繍琛屾湡閿欒鏄剧ず鍒伴〉闈㈠乏涓婅锛屾柟渚垮弽棣堟帓鏌?  window.onerror = function(msg, src, line, col) {
     var b = document.getElementById('errbox');
     b.style.display = 'block';
     b.textContent += msg + '\n  at ' + (src||'?') + ':' + line + ':' + col + '\n';
@@ -25,12 +24,7 @@
 <canvas id="canvas" width="1280" height="720"
         oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
 <script>
-  // 新版 Emscripten 要求显式提供 Module.canvas（否则运行时初始化时报
-  // "Cannot read properties of undefined (reading 'addEventListener')"）
-  // 必须在加载游戏脚本之前定义好。
-  // print/printErr：把 wasm 侧 stdout/stderr（raylib 的 INFO/ERROR 日志）
-  // 转存到页面错误框，便于黑屏时排查。
-  var Module = {
+  // 鏂扮増 Emscripten 瑕佹眰鏄惧紡鎻愪緵 Module.canvas锛堝惁鍒欒繍琛屾椂鍒濆鍖栨椂鎶?  // "Cannot read properties of undefined (reading 'addEventListener')"锛?  // 蹇呴』鍦ㄥ姞杞芥父鎴忚剼鏈箣鍓嶅畾涔夊ソ銆?  // print/printErr锛氭妸 wasm 渚?stdout/stderr锛坮aylib 鐨?INFO/ERROR 鏃ュ織锛?  // 杞瓨鍒伴〉闈㈤敊璇锛屼究浜庨粦灞忔椂鎺掓煡銆?  var Module = {
     canvas: document.getElementById('canvas'),
     print: function(t) {
       var b = document.getElementById('errbox');
@@ -44,8 +38,7 @@
   };
 </script>
 <script>
-  // 画布随窗口等比缩放（保持 16:9），raylib 负责内部渲染分辨率
-  (function(){
+  // 鐢诲竷闅忕獥鍙ｇ瓑姣旂缉鏀撅紙淇濇寔 16:9锛夛紝raylib 璐熻矗鍐呴儴娓叉煋鍒嗚鲸鐜?  (function(){
     var c = document.getElementById('canvas');
     function fit(){
       var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
@@ -56,7 +49,7 @@
     c.focus();
   })();
 </script>
-<!-- ===== 版本号：每次发布改成新文件名，避免浏览器/CDN 缓存旧文件 ===== -->
-<script async src="game_v19.js"></script>
+<!-- ===== 鐗堟湰鍙凤細姣忔鍙戝竷鏀规垚鏂版枃浠跺悕锛岄伩鍏嶆祻瑙堝櫒/CDN 缂撳瓨鏃ф枃浠?===== -->
+<script async src="game_v20.js"></script>
 </body>
 </html>
