@@ -23,7 +23,7 @@ const int TITLE_ATLAS_PX = 192;
 
 // 全局字号放大系数：不改动布局坐标的前提下，把所有文字统一放大一点，
 // 让文字更清楚易读（1.0 = 原始大小）。
-const float TEXT_SCALE = 1.10f;
+const float TEXT_SCALE = 1.20f;
 inline float TS(float sz) { return sz * TEXT_SCALE; }
 
 // font       正文字体
