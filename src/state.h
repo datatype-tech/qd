@@ -34,6 +34,8 @@ extern int achPage;
 extern bool shopOpen, copied;
 extern bool winGame, newRecord, tutPassed;
 extern bool shouldQuit;   // 置为 true 时主循环下一帧结束（用于"不同意条款并退出"）
+extern bool guideLock;    // 新手引导激活时为 true：只有高亮区域内的点击生效
+extern Rectangle guideRect;// 当前引导高亮的目标区域
 extern float shake, gTime;
 extern const int lensCost[3];
 extern const int stableCost[2];

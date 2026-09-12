@@ -27,6 +27,7 @@ static float debugCheckTimer = 0.0f;
 static void frameOnce() {
     s_dt = GetFrameTime(); gTime += s_dt;
     const float dt = s_dt;
+    guideLock = false;   // 每帧先解锁，由当前场景决定是否重新加锁（新手引导）
     (void)debugCheckTimer;
 
     if (IsKeyPressed(KEY_F11)) toggleFull();
@@ -171,6 +172,7 @@ int main() {
 
     while (!WindowShouldClose() && !shouldQuit) {
         float dt = GetFrameTime(); gTime += dt;
+        guideLock = false;   // 每帧先解锁，由当前场景决定是否重新加锁（新手引导）
 
         debugCheckTimer += dt;
         if (debugCheckTimer >= 2.0f) {

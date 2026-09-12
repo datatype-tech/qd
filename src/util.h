@@ -53,6 +53,9 @@ Vector2 cellCenter(int i);
 bool uiButton(Rectangle r, const string& label, Color base, bool active = false,
               float fs = 22, bool enabled = true);
 
+// 新手引导期间：只有与高亮区域重叠的控件才允许交互（其余点击/悬停一律屏蔽）
+bool guideAllows(Rectangle r);
+
 // ==================== 风格化 UI 构件 ====================
 // 面板：按当前风格绘制底色、描边与角部装饰
 void uiPanel(Rectangle r, float roundness = 0.04f);

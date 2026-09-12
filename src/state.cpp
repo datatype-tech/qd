@@ -35,6 +35,8 @@ int achPage = 0;
 bool shopOpen = false, copied = false;
 bool winGame = false, newRecord = false, tutPassed = false;
 bool shouldQuit = false;
+bool guideLock = false;
+Rectangle guideRect = { 0, 0, 0, 0 };
 float shake = 0, gTime = 0;
 const int lensCost[] = { 30,55,90 };
 const int stableCost[] = { 28,50 };

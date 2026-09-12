@@ -160,6 +160,9 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
 // ==================== 场景：主菜单 ====================
 void sceneMenu(float t) {
     const ThemeStyle& th = curTheme();
+    // 首次进入游戏的新手引导：锁定交互，只允许点击高亮的"新手引导"按钮
+    bool menuGuide = (!rec.guideMenuDone && rec.tutProgress < 8);
+    if (menuGuide) { guideLock = true; guideRect = { 40,596,250,42 }; }
     txtTitle("量 子 花 园", VW / 2.0f, 26, 58, th.title);
     txtSC(string("Quantum Garden 6.3　·　") + th.label, VW / 2.0f, 96, 20, th.textDim);
 
@@ -214,9 +217,7 @@ void sceneMenu(float t) {
             playSfx(sfxClick);
         }
     }
-    // 首次进入游戏：高亮指路，其余区域变暗
-    if (!rec.guideMenuDone && rec.tutProgress < 8)
-        drawGuideFocus(guideBtn, "欢迎来到量子花园！点这里开始【新手引导】，跟着提示一步步学", t);
+    // 首次进入游戏的引导遮罩在函数末尾统一绘制（保证盖在所有元素之上）
 
     uiPanel({ 40,132,250,400 }, 0.06f);
     txtS("历史最佳记录", 62, 143, 22, GOLD);
@@ -241,6 +242,9 @@ void sceneMenu(float t) {
     drawCurve({ VW - 350.0f, 164, 310, 186 }, false);
     drawFlower({ VW - 195.0f, 440 }, 3, t);
     drawSeed({ VW - 195.0f, 552 }, (int)(fmodf(t, 4.0f)), t);
+
+    if (menuGuide)
+        drawGuideFocus({ 40,596,250,42 }, "欢迎来到量子花园！点这里开始【新手引导】，跟着提示一步步学", t);
 }
 
 // ==================== 场景：规则 ====================
@@ -329,7 +333,7 @@ void sceneTutSel() {
         txt(TUT[i].title, x + 20, y + 14, 22, unlocked ? RAYWHITE : Color{ 92,96,108,255 });
         txt(done ? "已通关" : (unlocked ? "点击开始" : "未解锁"), x + 20, y + 46, 19,
             done ? GOLD : (unlocked ? GREEN : GRAY));
-        if (unlocked && CheckCollisionPointRec(gMouse, { x,y,460,80 })) {
+        if (unlocked && CheckCollisionPointRec(gMouse, { x,y,460,80 }) && guideAllows({ x,y,460,80 })) {
             DrawRectangleLinesEx({ x,y,460,80 }, 2, GREEN);
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { playSfx(sfxClick); tutIdx = i; scene = TUT_BRIEF; }
         }
@@ -600,7 +604,7 @@ void sceneSkin(float t) {
             bool ok = rec.skinUnlocked[i];
             bool cur = (ty == 0 && rec.themeSkin == i) || (ty == 1 && rec.seedSkin == i)
                      || (ty == 2 && rec.flowerSkin == i);
-            bool hover = ok && CheckCollisionPointRec(gMouse, { x,y,CW,CH });
+            bool hover = ok && CheckCollisionPointRec(gMouse, { x,y,CW,CH }) && guideAllows({ x,y,CW,CH });
             DrawRectangleRounded({ x,y,CW,CH }, 0.12f, 8,
                 ok ? (hover ? Color{ 52,58,84,255 } : Color{ 34,40,58,255 }) : Color{ 24,26,34,255 });
             DrawRectangleLinesEx({ x,y,CW,CH }, 2, cur ? GOLD : Fade(RAYWHITE, ok ? 0.18f : 0.06f));
@@ -683,7 +687,7 @@ void sceneMeta(float t) {
         int cost = upgCost(i);
         bool poor = !maxed && rec.stardust < cost;
         bool can = !maxed && !poor;
-        bool hover = can && CheckCollisionPointRec(gMouse, { x,y,480,168 });
+        bool hover = can && CheckCollisionPointRec(gMouse, { x,y,480,168 }) && guideAllows({ x,y,480,168 });
         DrawRectangleRounded({ x,y,480,168 }, 0.08f, 8,
             hover ? Color{ 48,54,80,255 } : Color{ 32,38,56,255 });
         DrawRectangleLinesEx({ x,y,480,168 }, 2, maxed ? GOLD : Fade(VIOLET, hover ? 0.9f : 0.4f));
@@ -760,7 +764,7 @@ void drawShopCard(Rectangle r, int k, bool fixedItem, float t) {
     }
     bool poor = (!soldOut && !maxed && energy < cost);
     bool canBuy = !soldOut && !maxed && !poor && toolOK(TL_SHOP);
-    bool hover = !uiLock && canBuy && CheckCollisionPointRec(gMouse, r);
+    bool hover = !uiLock && canBuy && CheckCollisionPointRec(gMouse, r) && guideAllows(r);
 
     DrawRectangleRounded(r, 0.10f, 8, soldOut ? Color{ 28,30,40,255 }
                                     : hover ? Color{ 48,56,80,255 } : Color{ 34,40,58,255 });
@@ -794,6 +798,11 @@ void drawShopCard(Rectangle r, int k, bool fixedItem, float t) {
 }
 
 void sceneShop(float t) {
+    // 教程第 6 关：只允许点击商品卡片区域
+    bool shopGuide = (mode == M_TUTORIAL && tutIdx == 5 && statBuy < 2);
+    Rectangle shopGuideRect = { 90, 145, 1105, 470 };
+    if (shopGuide) { guideLock = true; guideRect = shopGuideRect; }
+
     DrawRectangle(0, 0, VW, VH, Fade(BLACK, 0.62f));
     uiPanelAccent({ 70,30,1140,660 }, curTheme().accent, 0.02f);
     txtTitle("量 子 商 店", VW / 2.0f, 44, 36, curTheme().title);
@@ -810,10 +819,10 @@ void sceneShop(float t) {
 
     if (uiButton({ VW / 2.0f - 130,624,260,44 }, "离开商店 (ESC)", DARKGRAY)) shopOpen = false;
 
-    // 教程第 6 关：指引购买商品
-    if (mode == M_TUTORIAL && tutIdx == 5 && statBuy < 2)
-        drawGuideFocus({ 100,150,340,210 },
-                       "点卡片购买商品（购买不消耗回合），买满 2 件即可通关（" + to_string(statBuy) + "/2）", t);
+    // 教程第 6 关：指引购买商品（只高亮商品区，其余不可点击）
+    if (shopGuide)
+        drawGuideFocus(shopGuideRect,
+                       "点任意商品卡片购买（不消耗回合），买满 2 件即可通关（" + to_string(statBuy) + "/2）", t);
 }
 
 // ==================== 场景：存档槽位（10 个，可覆盖） ====================
@@ -869,6 +878,11 @@ void sceneSlots() {
 // ==================== 场景：游戏中 ====================
 void scenePlay(float dt, float t) {
     const ThemeStyle& th = curTheme();
+    // 教程内的分步引导：先算好目标并加锁（商店打开时由 sceneShop 负责）
+    Rectangle guideR; string guideT;
+    bool hasGuide = (!shopOpen) && tutorialGuide(guideR, guideT);
+    if (hasGuide) { guideLock = true; guideRect = guideR; }
+
     txtS("量子花园", 40, 14, 24, th.title);
     string mtag = mode == M_ENDLESS ? "无尽模式"
                 : mode == M_DAILY ? string("每日挑战 ") + to_string(todayCode())
@@ -946,7 +960,7 @@ void scenePlay(float dt, float t) {
     }
     if (!uiLock && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         for (int i = 0; i < SIZE * SIZE; ++i)
-            if (CheckCollisionPointRec(gMouse, cellRect(i))) { clickCell(i); break; }
+            if (CheckCollisionPointRec(gMouse, cellRect(i)) && guideAllows(cellRect(i))) { clickCell(i); break; }
 
     txt("行动（先选行动，再点击格子）", PX, 150, 22, SKYBLUE);
     if (medAllowed() && !medReady()) txt("冥想冷却中", PX + 508, 151, 18, ORANGE);
@@ -997,10 +1011,7 @@ void scenePlay(float dt, float t) {
     for (auto& m : logs) { txt(m.text, PX + 12, ly, 18, m.col); ly += 21.0f; }
 
     // 教程内分步指引（商店打开时由 sceneShop 负责显示）
-    if (!shopOpen) {
-        Rectangle gr; string gt;
-        if (tutorialGuide(gr, gt)) drawGuideFocus(gr, gt, t);
-    }
+    if (hasGuide) drawGuideFocus(guideR, guideT, t);
 }
 
 // ==================== 场景：结算 ====================

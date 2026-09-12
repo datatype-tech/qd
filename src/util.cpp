@@ -50,7 +50,6 @@ Font loadChineseFont() {
     // 清晰度关键在两点（图集分辨率与 mipmap），详见 util.h 中 FONT_ATLAS_PX
     // 上方的实测数据表：96px 图集 + 不生成 mipmap + 双线性过滤。
     const char* paths[] = {
-        "/fonts/font.ttf",                 // 网页版：--preload-file 打包的字体
         "font.ttf",
         "C:/Windows/Fonts/Deng.ttf",       // 等线：现代、干净、字重均匀
         "C:/Windows/Fonts/msyh.ttc",       // 微软雅黑：开口大，小字号可读性好
@@ -103,7 +102,6 @@ Font loadTitleFont() {
     std::vector<int> cps(uniq.begin(), uniq.end());
 
     const char* paths[] = {
-        "/fonts/font_title.ttf",           // 网页版：--preload-file 打包的字体
         "font_title.ttf",
         "C:/Windows/Fonts/Dengb.ttf",      // 等线 Bold
         "C:/Windows/Fonts/msyhbd.ttc",     // 雅黑 Bold
@@ -345,6 +343,12 @@ void uiPanel(Rectangle r, float roundness) {
 // ============================================================
 //  按钮：每种风格一套完全不同的造型
 // ============================================================
+// 引导锁：引导激活时，只有高亮目标区域内的控件可交互
+bool guideAllows(Rectangle r) {
+    if (!guideLock) return true;
+    return CheckCollisionRecs(r, guideRect);
+}
+
 bool uiButton(Rectangle r, const string& label, Color base, bool active,
               float fs, bool enabled) {
     const ThemeStyle& th = curTheme();
@@ -368,7 +372,7 @@ bool uiButton(Rectangle r, const string& label, Color base, bool active,
         return false;
     }
 
-    bool hover = !uiLock && CheckCollisionPointRec(gMouse, r);
+    bool hover = !uiLock && CheckCollisionPointRec(gMouse, r) && guideAllows(r);
     // 悬停微放大：所有风格共用的反馈
     float ex = hover ? 3.0f : 0.0f;
     Rectangle rr = { r.x - ex, r.y - ex * 0.6f, r.width + ex * 2, r.height + ex * 1.2f };
