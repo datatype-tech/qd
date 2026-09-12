@@ -60,6 +60,7 @@ static void frameOnce() {
         else if (scene == META)      sceneMeta(gTime);
         else if (scene == STATS)     sceneStats();
         else if (scene == LICENSE)   sceneLicense();
+        else if (scene == SLOTS)     sceneSlots();
         else if (scene == PLAY) {
             uiLock = shopOpen;
             scenePlay(dt, gTime);
@@ -73,6 +74,9 @@ static void frameOnce() {
             VW - 210.0f, VH - 26.0f, 18, muted ? GRAY : Fade(SKYBLUE, 0.6f));
         EndMode2D();
     EndTextureMode();
+
+    // 首次进入游戏的新手引导：一旦离开主菜单就视为看过
+    if (!rec.guideMenuDone && scene != MENU) { rec.guideMenuDone = true; saveRecords(); }
 
     float ox = (randF() - 0.5f) * shake, oy = (randF() - 0.5f) * shake;
     BeginDrawing();
@@ -207,6 +211,7 @@ int main() {
             else if (scene == META)      sceneMeta(gTime);
             else if (scene == STATS)     sceneStats();
             else if (scene == LICENSE)   sceneLicense();
+            else if (scene == SLOTS)     sceneSlots();
             else if (scene == PLAY) {
                 uiLock = shopOpen;
                 scenePlay(dt, gTime);
@@ -220,6 +225,9 @@ int main() {
                 VW - 210.0f, VH - 26.0f, 18, muted ? GRAY : Fade(SKYBLUE, 0.6f));
             EndMode2D();
         EndTextureMode();
+
+        // 首次进入游戏的新手引导：一旦离开主菜单就视为看过
+        if (!rec.guideMenuDone && scene != MENU) { rec.guideMenuDone = true; saveRecords(); }
 
         float ox = (randF() - 0.5f) * shake, oy = (randF() - 0.5f) * shake;
         BeginDrawing();

@@ -29,7 +29,7 @@ struct FloatTxt { Vector2 pos; string text; Color col; float life, size; };
 struct Particle { Vector2 pos, vel; float life, maxLife, size; Color col; };
 struct Shock { Vector2 pos; float r, maxR, life; Color col; };
 
-enum Scene { MENU, HELP, PLAY, RESULT, TUT_SEL, TUT_BRIEF, ACHIEVE, SKINSEL, META, STATS, LICENSE };
+enum Scene { MENU, HELP, PLAY, RESULT, TUT_SEL, TUT_BRIEF, ACHIEVE, SKINSEL, META, STATS, LICENSE, SLOTS };
 enum Tool { T_PLANT, T_OBSERVE, T_ENTANGLE };
 enum Mode { M_CLASSIC, M_ENDLESS, M_TUTORIAL, M_DAILY };
 
@@ -166,6 +166,7 @@ struct Records {
     bool luxUnlocked = false, luxOn = true;
     bool licenseAgreed = false;   // 是否已同意版权/反编译声明
     int  achSeen = 0;             // 玩家已查看过的成就数量（用于成就墙红点提示）
+    bool guideMenuDone = false;   // 首次进入游戏的新手引导是否已看过
 };
 
 // ==================== 规则手册 ====================

@@ -16,6 +16,147 @@
 #include <cmath>
 #include <algorithm>
 
+// ============================================================
+//  新手引导：高亮圈出要点的位置 + 其余区域变暗 + 文字/箭头提示
+// ============================================================
+// 压暗除目标外的四个区域（比整屏压暗再"挖洞"更简单可靠）
+static void dimExcept(Rectangle r) {
+    Color dim = Fade(BLACK, 0.62f);
+    if (r.y > 0) DrawRectangle(0, 0, VW, (int)r.y, dim);
+    if (r.y + r.height < VH) DrawRectangle(0, (int)(r.y + r.height), VW, VH - (int)(r.y + r.height), dim);
+    if (r.x > 0) DrawRectangle(0, (int)r.y, (int)r.x, (int)r.height, dim);
+    if (r.x + r.width < VW) DrawRectangle((int)(r.x + r.width), (int)r.y, VW - (int)(r.x + r.width), (int)r.height, dim);
+}
+
+// 高亮目标 + 提示气泡 + 指向箭头
+static void drawGuideFocus(Rectangle r, const string& text, float t) {
+    dimExcept(r);
+    float pulse = 0.5f + 0.5f * sinf(t * 4.0f);
+    DrawRectangleLinesEx(r, 3.0f, Fade(GOLD, 0.75f + 0.25f * pulse));
+    DrawRectangleRoundedLines({ r.x - 5 - pulse * 7, r.y - 5 - pulse * 7,
+                                r.width + 10 + pulse * 14, r.height + 10 + pulse * 14 },
+                              0.25f, 8, Fade(GOLD, 0.55f * (1.0f - pulse)));
+
+    float fs = 21.0f;
+    Vector2 m = MeasureTextEx(font, text.c_str(), fs, 1);
+    float pad = 16.0f, bh = 46.0f;
+    float bw = m.x + pad * 2;
+    float bx = std::clamp(r.x + r.width / 2 - bw / 2, 20.0f, VW - bw - 20.0f);
+    float by = (r.y > 120.0f) ? r.y - bh - 18.0f : r.y + r.height + 18.0f;
+    by = std::clamp(by, 60.0f, VH - bh - 16.0f);
+    DrawRectangleRounded({ bx, by, bw, bh }, 0.28f, 8, Fade(Color{ 24,28,44,255 }, 0.97f));
+    DrawRectangleRoundedLines({ bx, by, bw, bh }, 0.28f, 8, GOLD);
+    txt(text, bx + pad, by + (bh - m.y) / 2, fs, RAYWHITE);
+
+    // 箭头：在气泡与目标之间，指向目标
+    float acx = r.x + r.width / 2;
+    float ah = 9.0f + pulse * 4.0f;
+    if (by < r.y) { float ay = by + bh + 3; DrawTriangle({ acx, ay + ah }, { acx - 9, ay }, { acx + 9, ay }, GOLD); }
+    else          { float ay = by - 3;        DrawTriangle({ acx, ay - ah }, { acx - 9, ay }, { acx + 9, ay }, GOLD); }
+}
+
+// 棋盘区域整体矩形
+static Rectangle boardRect() {
+    return { (float)GRID_X, (float)GRID_Y,
+             (float)(SIZE * CELL + (SIZE - 1) * GAP), (float)(SIZE * CELL + (SIZE - 1) * GAP) };
+}
+// 优先圈出"最该操作"的格子：圆满种子 -> 任意种子/纠缠 -> 棋盘整体
+static Rectangle guideCellRect() {
+    for (int i = 0; i < SIZE * SIZE; ++i)
+        if (grid[i].st == SEED && grid[i].mat >= 3) return cellRect(i);
+    for (int i = 0; i < SIZE * SIZE; ++i)
+        if (grid[i].st == SEED || grid[i].st == ENTANGLED) return cellRect(i);
+    return boardRect();
+}
+static bool boardHasSeed() {
+    for (auto& c : grid) if (c.st == SEED || c.st == ENTANGLED || c.st == FLOWER) return true;
+    return false;
+}
+static int boardMaxMat() {
+    int m = -1;
+    for (auto& c : grid) if (c.st == SEED && c.mat > m) m = c.mat;
+    return m;
+}
+static bool boardHasEntangled() {
+    for (auto& c : grid) if (c.st == ENTANGLED) return true;
+    return false;
+}
+
+// 教程内的分步指引：返回 true 表示当前应显示引导
+// 说明：全部基于当前局面"无状态"推导，不需要额外存档字段，怎么点都不会错位。
+static bool tutorialGuide(Rectangle& outR, string& outT) {
+    if (mode != M_TUTORIAL) return false;
+    Rectangle rPlant = { PX, 180, 200, 46 };
+    Rectangle rObs   = { PX + 215, 180, 200, 46 };
+    Rectangle rEnt   = { PX + 430, 180, 200, 46 };
+    Rectangle rMed   = { PX, 238, 630, 42 };
+    Rectangle rShop  = { PX, 290, 630, 46 };
+
+    switch (tutIdx) {
+    case 0:   // 观测
+        if (tool != T_OBSERVE) { outR = rObs; outT = "第 1 步：点【观测】选择行动"; return true; }
+        if (statObs < 3) {
+            outR = guideCellRect();
+            outT = "第 2 步：点棋盘上的种子让它坍缩（" + to_string(statObs) + "/3）";
+            return true;
+        }
+        break;
+    case 1:   // 种植与成熟度
+        if (!boardHasSeed()) {
+            if (tool != T_PLANT) { outR = rPlant; outT = "第 1 步：点【种植】选择种植"; }
+            else                 { outR = boardRect(); outT = "第 2 步：点任意空地，花 10 灵能种下种子"; }
+            return true;
+        }
+        if (boardMaxMat() < 3) { outR = rMed; outT = "第 3 步：点【冥想】推进回合，让种子长大（+6 灵能）"; return true; }
+        if (statMatObs < 2) {
+            if (tool != T_OBSERVE) { outR = rObs; outT = "第 4 步：点【观测】准备收割"; }
+            else                   { outR = guideCellRect(); outT = "第 5 步：点【圆满】的种子收割（" + to_string(statMatObs) + "/2）"; }
+            return true;
+        }
+        break;
+    case 2:   // 连击与量子藤
+        if (tool != T_OBSERVE) { outR = rObs; outT = "点【观测】，连续拿好结果就能叠【连击】"; return true; }
+        if (maxCombo < 3) { outR = guideCellRect(); outT = "盯住成熟的种子观测，叠满 3 连击即可通关（" + to_string(maxCombo) + "/3）"; return true; }
+        break;
+    case 3:   // 灵能花
+        if (!boardHasSeed()) {
+            if (tool != T_PLANT) { outR = rPlant; outT = "先点【种植】把种子铺上场"; }
+            else                 { outR = boardRect(); outT = "点空地种下种子"; }
+            return true;
+        }
+        if (flowers < 2) {
+            if (tool != T_OBSERVE) { outR = rObs; outT = "点【观测】"; }
+            else                   { outR = guideCellRect(); outT = "观测成熟种子，直到开出 2 朵灵能花（" + to_string(flowers) + "/2）"; }
+            return true;
+        }
+        break;
+    case 4:   // 量子纠缠
+        if (!boardHasEntangled()) {
+            if (tool != T_ENTANGLE) { outR = rEnt; outT = "第 1 步：点【纠缠】"; return true; }
+            if (entSel < 0)         { outR = guideCellRect(); outT = "第 2 步：点第一颗种子"; return true; }
+                                    { outR = guideCellRect(); outT = "第 3 步：再点第二颗种子，完成纠缠"; return true; }
+        }
+        if (statEntSync < 2) {
+            if (tool != T_OBSERVE) { outR = rObs; outT = "第 4 步：点【观测】"; }
+            else                   { outR = guideCellRect(); outT = "观测纠缠中的种子，触发同步坍缩（" + to_string(statEntSync) + "/2）"; }
+            return true;
+        }
+        break;
+    case 5:   // 商店
+        if (statBuy < 2) { outR = rShop; outT = "点【进入量子商店】选购商品，买满 2 件即可通关（" + to_string(statBuy) + "/2）"; return true; }
+        break;
+    default:  // 第 7、8 关：自主应对
+        if (!boardHasSeed()) {
+            if (tool != T_PLANT) { outR = rPlant; outT = "点【种植】铺开局面"; }
+            else                 { outR = boardRect(); outT = "点空地种下种子"; }
+            return true;
+        }
+        if (tool != T_OBSERVE) { outR = rObs; outT = "点【观测】收割成熟种子"; return true; }
+        outR = guideCellRect(); outT = "成熟了要及时收割，保持场上有花持续产出"; return true;
+    }
+    return false;
+}
+
 // ==================== 场景：主菜单 ====================
 void sceneMenu(float t) {
     const ThemeStyle& th = curTheme();
@@ -53,22 +194,29 @@ void sceneMenu(float t) {
     if (uiButton({ bx + 204,560,196,40 }, "全屏 (F11)", DARKGRAY, false, 19)) toggleFull();
     if (uiButton({ bx,608,400,36 }, "关于 / 用户许可协议", DARKGRAY, false, 17)) { prevScene = MENU; scene = LICENSE; }
 
-    // 左侧面板下方的两个入口：继续游戏（有存档时）与新手引导（教程未通关时）
-    if (hasSavedRun()) {
-        if (uiButton({ 40,548,250,42 }, "继续游戏 / 导入存档", GREEN, false, 19)) {
-            if (!loadRun()) addLog("对局存档已损坏，无法继续。", RED);
-        }
+    // 左侧面板下方：存档管理入口 + 新手引导入口
+    int usedSlots = usedSlotCount();
+    if (uiButton({ 40,548,250,42 },
+                 usedSlots > 0 ? ("继续游戏 / 存档管理 " + to_string(usedSlots) + "/10")
+                               : "存档管理（暂无存档）",
+                 usedSlots > 0 ? GREEN : DARKGRAY, false, 17)) {
+        slotsMode = 1; prevScene = MENU; scene = SLOTS;
+        playSfx(sfxClick);
     }
+    Rectangle guideBtn = { 40, 596, 250, 42 };
     if (rec.tutProgress < 8) {
-        float gy = hasSavedRun() ? 596.0f : 548.0f;
         string gt = rec.tutProgress == 0 ? "新 手 引 导（推荐）"
                                          : "继续新手引导 " + to_string(rec.tutProgress + 1) + " / 8";
-        if (uiButton({ 40,gy,250,42 }, gt, Color{ 60,170,110,255 }, false, 19)) {
+        if (uiButton(guideBtn, gt, Color{ 60,170,110,255 }, false, 19)) {
             tutIdx = std::clamp(rec.tutProgress, 0, 7);
+            rec.guideMenuDone = true; saveRecords();
             scene = TUT_BRIEF;
             playSfx(sfxClick);
         }
     }
+    // 首次进入游戏：高亮指路，其余区域变暗
+    if (!rec.guideMenuDone && rec.tutProgress < 8)
+        drawGuideFocus(guideBtn, "欢迎来到量子花园！点这里开始【新手引导】，跟着提示一步步学", t);
 
     uiPanel({ 40,132,250,400 }, 0.06f);
     txtS("历史最佳记录", 62, 143, 22, GOLD);
@@ -661,6 +809,61 @@ void sceneShop(float t) {
     for (int i = 0; i < 3; ++i) drawShopCard({ xs[i],396,340,210 }, shopSlot[i], false, t);
 
     if (uiButton({ VW / 2.0f - 130,624,260,44 }, "离开商店 (ESC)", DARKGRAY)) shopOpen = false;
+
+    // 教程第 6 关：指引购买商品
+    if (mode == M_TUTORIAL && tutIdx == 5 && statBuy < 2)
+        drawGuideFocus({ 100,150,340,210 },
+                       "点卡片购买商品（购买不消耗回合），买满 2 件即可通关（" + to_string(statBuy) + "/2）", t);
+}
+
+// ==================== 场景：存档槽位（10 个，可覆盖） ====================
+void sceneSlots() {
+    uiPanel({ 60,20,VW - 120.0f,VH - 40.0f }, 0.02f);
+    txtTitle("存 档 槽 位", VW / 2.0f, 30, 34, curTheme().title);
+    txtC(slotsMode == 0 ? "选择一个槽位保存当前对局（已有存档会被覆盖）"
+                        : "选择存档继续游戏，也可删除不需要的存档",
+         VW / 2.0f, 76, 20, RAYWHITE);
+
+    const char* modeName[4] = { "经典", "无尽", "教程", "每日" };
+    for (int i = 0; i < RUN_SLOTS; ++i) {
+        int slot = i + 1;
+        float col = (float)(i % 2), row = (float)(i / 2);
+        Rectangle card = { 90 + col * 560, 118 + row * 106, 520, 94 };
+        RunSlotInfo info = readRunSlot(slot);
+        uiPanel(card, 0.10f);
+        DrawRectangleRounded({ card.x, card.y, 5, card.height }, 1.0f, 6,
+                             info.used ? Fade(GOLD, 0.9f) : Fade(GRAY, 0.5f));
+        txt("槽位 " + to_string(slot), card.x + 16, card.y + 12, 21, GOLD);
+        if (info.used) {
+            string mt = (info.mode >= 0 && info.mode < 4) ? modeName[info.mode] : "未知";
+            txt(mt + "模式 · 第 " + to_string(info.turn) + " 回合 · 灵能 " + to_string(info.energy),
+                card.x + 112, card.y + 14, 19, RAYWHITE);
+        } else {
+            txt("空存档", card.x + 112, card.y + 14, 19, GRAY);
+        }
+
+        float bx = card.x + card.width - 246, by = card.y + 50;
+        if (slotsMode == 0) {
+            if (uiButton({ bx, by, 110, 34 }, info.used ? "覆盖" : "保存", GREEN, false, 18)) {
+                saveRun(slot);
+                addLog("已保存到槽位 " + to_string(slot) + "。", GREEN);
+                playSfx(sfxClick);
+            }
+        } else {
+            if (uiButton({ bx, by, 110, 34 }, "读取", SKYBLUE, false, 18, info.used)) {
+                if (loadRun(slot)) playSfx(sfxClick);
+            }
+            if (uiButton({ bx + 122, by, 110, 34 }, "删除", Color{ 150,70,70,255 }, false, 18, info.used)) {
+                clearRunSave(slot);
+                playSfx(sfxClick);
+            }
+        }
+    }
+
+    if (uiButton({ VW / 2.0f - 110, VH - 74.0f, 220, 46 },
+                 slotsMode == 0 ? "返回对局" : "返回主菜单", DARKGRAY, false, 20)) {
+        scene = (slotsMode == 0) ? PLAY : MENU;
+    }
 }
 
 // ==================== 场景：游戏中 ====================
@@ -674,10 +877,9 @@ void scenePlay(float dt, float t) {
     txt(mtag, 170, 17, 22, GOLD);
     txt("H 规则   F11 全屏   M 音效", 640, 20, 18, GRAY);
 
-    // 对局内快捷操作：存档（可回主菜单继续）与退出（放弃本局回到主菜单）
+    // 对局内快捷操作：存档（进入 10 个槽位界面）与退出（放弃本局回到主菜单）
     if (uiButton({ VW - 268, 8, 120, 32 }, "存档", SKYBLUE, false, 18)) {
-        saveRun();
-        addLog("已存档：回到主菜单后选【继续游戏 / 导入存档】即可接着玩。", SKYBLUE);
+        slotsMode = 0; prevScene = PLAY; scene = SLOTS;
         playSfx(sfxClick);
     }
     if (uiButton({ VW - 140, 8, 120, 32 }, "退出", Color{ 150,70,70,255 }, false, 18)) {
@@ -793,6 +995,12 @@ void scenePlay(float dt, float t) {
     uiPanel({ PX,432,630,270 }, 0.04f);
     float ly = 442;
     for (auto& m : logs) { txt(m.text, PX + 12, ly, 18, m.col); ly += 21.0f; }
+
+    // 教程内分步指引（商店打开时由 sceneShop 负责显示）
+    if (!shopOpen) {
+        Rectangle gr; string gt;
+        if (tutorialGuide(gr, gt)) drawGuideFocus(gr, gt, t);
+    }
 }
 
 // ==================== 场景：结算 ====================

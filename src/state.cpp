@@ -12,6 +12,7 @@ Scene scene = MENU, prevScene = MENU;
 Tool tool = T_OBSERVE;
 Mode mode = M_CLASSIC;
 int diff = 1, helpPage = 0, tutIdx = 0, licensePage = 0;
+int slotsMode = 0, curRunSlot = 0;
 std::vector<Cell> grid(SIZE * SIZE);
 std::deque<LogMsg> logs;
 std::vector<FloatTxt> floats;

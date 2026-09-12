@@ -17,3 +17,4 @@ void drawShopCard(Rectangle r, int k, bool fixedItem, float t);
 void sceneShop(float t);
 void scenePlay(float dt, float t);
 void sceneResult(float t);
+void sceneSlots();

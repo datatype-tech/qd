@@ -10,6 +10,8 @@ extern Scene scene, prevScene;
 extern Tool tool;
 extern Mode mode;
 extern int diff, helpPage, tutIdx, licensePage;
+extern int slotsMode;    // 0 = 保存模式（对局中进入）1 = 读取/管理模式（主菜单进入）
+extern int curRunSlot;   // 当前对局关联的存档槽位（1..10，0 表示未关联）
 extern std::vector<Cell> grid;
 extern std::deque<LogMsg> logs;
 extern std::vector<FloatTxt> floats;

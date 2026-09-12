@@ -59,6 +59,8 @@ void loadRecords() {
     if (okRead && (f >> la)) { r.licenseAgreed = (la != 0); }   // 老存档没有这个字段，读不到就维持默认 false
     int as = 0;
     if (okRead && (f >> as)) { r.achSeen = as; }                // 同上：老存档缺此字段时默认 0
+    int gm = 0;
+    if (okRead && (f >> gm)) { r.guideMenuDone = (gm != 0); }   // 新手引导是否已看过
 
     if (!okRead) { saveWasLegacy = true; return; }   // 档案损坏：不采用
 
@@ -110,6 +112,7 @@ void saveRecords() {
     f << "\n" << (rec.luxUnlocked ? 1 : 0) << " " << (rec.luxOn ? 1 : 0) << "\n";
     f << (rec.licenseAgreed ? 1 : 0) << "\n";
     f << rec.achSeen << "\n";
+    f << (rec.guideMenuDone ? 1 : 0) << "\n";
 
 #ifdef __EMSCRIPTEN__
     // 网页版：MEMFS 是内存文件系统，必须把改动同步回 IndexedDB 才能持久保存。
@@ -126,11 +129,18 @@ void saveRecords() {
 }
 
 // ============================================================
-//  对局存档：把"当前这一局"的状态写进 qg_run.txt
-//  与上面的玩家档案（成就/星尘等）分开，互不影响。
+//  对局存档：把"当前这一局"的状态写进槽位文件 qg_run_<n>.txt
+//  与玩家档案（成就/星尘等）分开，互不影响。
 //  网页版走 IDBFS，因此写完同样需要 syncfs 落盘。
 // ============================================================
 static const char* RUN_TAG = "QGRUN1";
+
+// 槽位文件路径：1..10 -> qg_run_1.txt ... qg_run_10.txt
+// 为兼容旧版本，槽位 1 还会回退读取最初的 qg_run.txt。
+static void runPath(int slot, int cand, char* buf, int n) {
+    if (cand == 0) std::snprintf(buf, n, "qg_run_%d.txt", slot);
+    else           std::snprintf(buf, n, "qg_run.txt");
+}
 
 static void syncRunStore() {
 #ifdef __EMSCRIPTEN__
@@ -138,21 +148,54 @@ static void syncRunStore() {
 #endif
 }
 
-bool hasSavedRun() {
-    std::ifstream f("qg_run.txt");
-    if (!f) return false;
-    string tag;
-    if (!(f >> tag) || tag != RUN_TAG) return false;
-    return true;
+bool hasSavedRun(int slot) {
+    for (int cand = 0; cand < 2; ++cand) {
+        if (cand == 1 && slot != 1) break;             // 仅槽位 1 兼容旧文件名
+        char path[64]; runPath(slot, cand, path, sizeof(path));
+        std::ifstream f(path);
+        if (!f) continue;
+        string tag;
+        if ((f >> tag) && tag == RUN_TAG) return true;
+    }
+    return false;
 }
 
-void clearRunSave() {
-    std::remove("qg_run.txt");
+RunSlotInfo readRunSlot(int slot) {
+    RunSlotInfo info;
+    for (int cand = 0; cand < 2; ++cand) {
+        if (cand == 1 && slot != 1) break;
+        char path[64]; runPath(slot, cand, path, sizeof(path));
+        std::ifstream f(path);
+        if (!f) continue;
+        string tag; int m = 0, d = 0, ti = 0;
+        if (!(f >> tag) || tag != RUN_TAG) continue;
+        if (!(f >> m >> d >> ti)) continue;
+        int turn = 0, energy = 0;
+        if (!(f >> turn >> energy)) continue;
+        info.used = true; info.mode = m; info.turn = turn; info.energy = energy;
+        return info;
+    }
+    return info;
+}
+
+int usedSlotCount() {
+    int n = 0;
+    for (int s = 1; s <= RUN_SLOTS; ++s) if (hasSavedRun(s)) ++n;
+    return n;
+}
+
+void clearRunSave(int slot) {
+    for (int cand = 0; cand < 2; ++cand) {
+        if (cand == 1 && slot != 1) break;
+        char path[64]; runPath(slot, cand, path, sizeof(path));
+        std::remove(path);
+    }
     syncRunStore();
 }
 
-void saveRun() {
-    std::ofstream f("qg_run.txt");
+void saveRun(int slot) {
+    char path[64]; runPath(slot, 0, path, sizeof(path));
+    std::ofstream f(path);
     if (!f) return;
     f << RUN_TAG << "\n";
     f << mode << " " << diff << " " << tutIdx << "\n";
@@ -174,46 +217,54 @@ void saveRun() {
     rs << rng;
     f << rs.str() << "\n";
     f.close();
+    curRunSlot = slot;
     syncRunStore();
 }
 
-bool loadRun() {
-    std::ifstream f("qg_run.txt");
-    if (!f) return false;
-    string tag;
-    if (!(f >> tag) || tag != RUN_TAG) return false;
+bool loadRun(int slot) {
+    for (int cand = 0; cand < 2; ++cand) {
+        if (cand == 1 && slot != 1) break;
+        char path[64]; runPath(slot, cand, path, sizeof(path));
+        std::ifstream f(path);
+        if (!f) continue;
+        string tag;
+        if (!(f >> tag) || tag != RUN_TAG) continue;
 
-    int m = 0, d = 0, ti = 0;
-    if (!(f >> m >> d >> ti)) return false;
-    mode = (Mode)m; diff = d; tutIdx = ti;
-    int tl = 0;
-    if (!(f >> turnNo >> energy >> combo >> maxCombo >> wave >> tl >> entSel)) return false;
-    tool = (Tool)tl;
-    if (!(f >> lensLv >> stableLv >> ampLv >> plantCost >> maxTurn >> winEnergy)) return false;
-    if (!(f >> medReadyTurn >> shieldCharges >> eyeCharges >> luckCharges >> entropyCut >> springTurns)) return false;
-    if (!(f >> shopSlot[0] >> shopSlot[1] >> shopSlot[2] >> shopRefreshTurn)) return false;
-    if (!(f >> riftThisRun >> catStreak >> obsThisRun >> entUsedRun >> shopUsedRun >> minEnergyRun)) return false;
-    if (!(f >> statObs >> statMatObs >> statEntSync >> statBuy >> flowers >> cats)) return false;
+        int m = 0, d = 0, ti = 0;
+        if (!(f >> m >> d >> ti)) continue;
+        mode = (Mode)m; diff = d; tutIdx = ti;
+        int tl = 0;
+        if (!(f >> turnNo >> energy >> combo >> maxCombo >> wave >> tl >> entSel)) continue;
+        tool = (Tool)tl;
+        if (!(f >> lensLv >> stableLv >> ampLv >> plantCost >> maxTurn >> winEnergy)) continue;
+        if (!(f >> medReadyTurn >> shieldCharges >> eyeCharges >> luckCharges >> entropyCut >> springTurns)) continue;
+        if (!(f >> shopSlot[0] >> shopSlot[1] >> shopSlot[2] >> shopRefreshTurn)) continue;
+        if (!(f >> riftThisRun >> catStreak >> obsThisRun >> entUsedRun >> shopUsedRun >> minEnergyRun)) continue;
+        if (!(f >> statObs >> statMatObs >> statEntSync >> statBuy >> flowers >> cats)) continue;
 
-    grid.assign(SIZE * SIZE, Cell{});
-    for (int i = 0; i < SIZE * SIZE; ++i) {
-        int st = 0, mat = 0, partner = -1, life = 0;
-        if (!(f >> st >> mat >> partner >> life)) return false;
-        grid[i] = Cell{ (CellSt)st, mat, partner, life };
+        grid.assign(SIZE * SIZE, Cell{});
+        bool ok = true;
+        for (int i = 0; i < SIZE * SIZE && ok; ++i) {
+            int st = 0, mat = 0, partner = -1, life = 0;
+            if (!(f >> st >> mat >> partner >> life)) { ok = false; break; }
+            grid[i] = Cell{ (CellSt)st, mat, partner, life };
+        }
+        if (!ok) continue;
+        string rngLine;
+        if (!(f >> rngLine)) continue;
+        std::istringstream rs(rngLine);
+        rs >> rng;
+
+        turnNo = std::max(1, turnNo);
+        energy = std::max(0, energy);
+        entSel = -1;
+        shopOpen = false; copied = false;
+        winGame = false; newRecord = false;
+        logs.clear(); floats.clear(); parts.clear(); shocks.clear();
+        curRunSlot = slot;
+        addLog("已载入存档槽位 " + to_string(slot) + "，欢迎回来继续耕耘。", GREEN);
+        scene = PLAY;
+        return true;
     }
-    string rngLine;
-    if (!(f >> rngLine)) return false;
-    std::istringstream rs(rngLine);
-    rs >> rng;
-
-    // 修正：避免恢复出不合理的数值（例如损坏的存档）
-    turnNo = std::max(1, turnNo);
-    energy = std::max(0, energy);
-    entSel = -1;
-    shopOpen = false; copied = false;
-    winGame = false; newRecord = false;
-    logs.clear(); floats.clear(); parts.clear(); shocks.clear();
-    addLog("已载入对局存档，欢迎回来继续耕耘。", GREEN);
-    scene = PLAY;
-    return true;
+    return false;
 }
