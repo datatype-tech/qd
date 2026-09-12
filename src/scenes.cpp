@@ -68,6 +68,14 @@ static Rectangle guideCellRect() {
         if (grid[i].st == SEED || grid[i].st == ENTANGLED) return cellRect(i);
     return boardRect();
 }
+// 圈出"一颗可纠缠的种子"（成熟优先），可排除已选中的 except 格，避免重复点同一颗
+static Rectangle guideSeedCellExcept(int except) {
+    for (int i = 0; i < SIZE * SIZE; ++i)
+        if (i != except && grid[i].st == SEED && grid[i].mat >= 3) return cellRect(i);
+    for (int i = 0; i < SIZE * SIZE; ++i)
+        if (i != except && grid[i].st == SEED) return cellRect(i);
+    return boardRect();
+}
 // 场上是否还有"可操作"的种子/纠缠（灵能花是被动产出、不可点击，不计入）
 static bool boardHasSeed() {
     for (auto& c : grid) if (c.st == SEED || c.st == ENTANGLED) return true;
@@ -134,8 +142,8 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
     case 4:   // 量子纠缠
         if (!boardHasEntangled()) {
             if (tool != T_ENTANGLE) { outR = rEnt; outT = "第 1 步：点【纠缠】"; return true; }
-            if (entSel < 0)         { outR = boardRect(); outT = "第 2 步：点第一颗种子"; return true; }
-                                    { outR = boardRect(); outT = "第 3 步：再点另一颗种子，完成纠缠"; return true; }
+            if (entSel < 0)         { outR = guideSeedCellExcept(-1);    outT = "第 2 步：点这颗高亮的种子（第一颗）"; return true; }
+                                    { outR = guideSeedCellExcept(entSel); outT = "第 3 步：点另一颗高亮的种子，完成纠缠"; return true; }
         }
         if (statEntSync < 2) {
             if (tool != T_OBSERVE) { outR = rObs; outT = "第 4 步：点【观测】"; }
