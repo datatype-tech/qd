@@ -21,6 +21,11 @@ const int FONT_ATLAS_PX  = 128;
 // 大字标题在全屏下依然锐利（正文 128px 图集，正文最大约 30px×3=90px）。
 const int TITLE_ATLAS_PX = 192;
 
+// 全局字号放大系数：不改动布局坐标的前提下，把所有文字统一放大一点，
+// 让文字更清楚易读（1.0 = 原始大小）。
+const float TEXT_SCALE = 1.10f;
+inline float TS(float sz) { return sz * TEXT_SCALE; }
+
 // font       正文字体
 // fontTitle  标题 / 强调字体（更粗字重）
 Font loadChineseFont();

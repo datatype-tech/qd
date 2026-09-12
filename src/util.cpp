@@ -148,9 +148,11 @@ static inline float snap(float v) {
 static inline Vector2 snapV(float x, float y) { return Vector2{ snap(x), snap(y) }; }
 
 void txt(const string& s, float x, float y, float sz, Color c) {
+    sz = TS(sz);   // 全局字号放大
     DrawTextEx(font, s.c_str(), snapV(x, y), sz, autoSpacing(sz), c);
 }
 void txtC(const string& s, float cx, float y, float sz, Color c) {
+    sz = TS(sz);
     float sp = autoSpacing(sz);
     Vector2 m = MeasureTextEx(font, s.c_str(), sz, sp);
     DrawTextEx(font, s.c_str(), snapV(cx - m.x / 2, y), sz, sp, c);
@@ -159,19 +161,22 @@ void txtC(const string& s, float cx, float y, float sz, Color c) {
 // ---------- 有质感的文字 ----------
 // 柔和投影：偏移整数像素的半透明黑，立体感明显且不引入灰边
 void txtS(const string& s, float x, float y, float sz, Color c) {
+    sz = TS(sz);
     float sp = autoSpacing(sz);
     DrawTextEx(font, s.c_str(), snapV(x + 1, y + 1), sz, sp, Fade(BLACK, 0.45f));
     DrawTextEx(font, s.c_str(), snapV(x, y), sz, sp, c);
 }
 void txtSC(const string& s, float cx, float y, float sz, Color c) {
-    float sp = autoSpacing(sz);
-    Vector2 m = MeasureTextEx(font, s.c_str(), sz, sp);
+    // 按放大后的字号测量居中，再交给 txtS（txtS 内部再放大一次，避免双重缩放）
+    float sp = autoSpacing(TS(sz));
+    Vector2 m = MeasureTextEx(font, s.c_str(), TS(sz), sp);
     txtS(s, cx - m.x / 2, y, sz, c);
 }
 
 // 描边：四向偏移绘制深色字形再叠正色，保证任何幕布上都清晰。
 // 偏移量取整数像素，避免描边本身变成一圈灰雾。
 void txtOutline(const string& s, float x, float y, float sz, Color c, Color oc, float w) {
+    sz = TS(sz);
     float sp = autoSpacing(sz);
     float o = snap(w); if (o < 1) o = 1;
     const float dx[8] = { -1,1,0,0,-1,1,-1,1 };
@@ -182,15 +187,16 @@ void txtOutline(const string& s, float x, float y, float sz, Color c, Color oc, 
 }
 
 Vector2 measureTracked(const string& s, float sz, float spacing) {
-    return MeasureTextEx(titleFontOr(), s.c_str(), sz, spacing);
+    return MeasureTextEx(titleFontOr(), s.c_str(), TS(sz), spacing);
 }
 void txtTracked(const string& s, float x, float y, float sz, float spacing, Color c) {
-    DrawTextEx(titleFontOr(), s.c_str(), snapV(x, y), sz, spacing, c);
+    DrawTextEx(titleFontOr(), s.c_str(), snapV(x, y), TS(sz), spacing, c);
 }
 
 // 标题：粗字重 + 风格字距 + 描边 + 可选辉光。
 // 辉光用多层低透明度同色字形堆叠模拟，比后处理便宜且不需要额外 RT。
 void txtTitle(const string& s, float cx, float y, float sz, Color c, bool glow) {
+    sz = TS(sz);   // 全局字号放大
     const ThemeStyle& th = curTheme();
     const Font& f = titleFontOr();
     float sp = th.titleSpace + sz * 0.03f;
@@ -372,7 +378,7 @@ bool uiButton(Rectangle r, const string& label, Color base, bool active,
             DrawRectangleRounded(r, th.round, 10, off);
             DrawRectangleRoundedLines(r, th.round, 10, offEdge); break;
         }
-        Vector2 m = MeasureTextEx(font, label.c_str(), fs, autoSpacing(fs));
+        Vector2 m = MeasureTextEx(font, label.c_str(), TS(fs), autoSpacing(TS(fs)));
         txt(label, r.x + (r.width - m.x) / 2, r.y + (r.height - m.y) / 2, fs,
             Color{ 96,100,112,255 });
         return false;
@@ -633,8 +639,8 @@ bool uiButton(Rectangle r, const string& label, Color base, bool active,
     }
 
     // ---------- 文字：统一带投影，保证在任何底色上可读 ----------
-    float sp = autoSpacing(fs);
-    Vector2 m = MeasureTextEx(font, label.c_str(), fs, sp);
+    float sp = autoSpacing(TS(fs));
+    Vector2 m = MeasureTextEx(font, label.c_str(), TS(fs), sp);
     float tx = rr.x + (rr.width - m.x) / 2, ty = rr.y + (rr.height - m.y) / 2;
     // 极简风格文字左对齐，呼应其留白语言
     if (th.btn == BS_LINE) tx = rr.x + 16;

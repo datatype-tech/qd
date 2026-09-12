@@ -38,7 +38,7 @@ static void drawGuideFocus(Rectangle r, const string& text, float t) {
                               0.25f, 8, Fade(GOLD, 0.55f * (1.0f - pulse)));
 
     float fs = 21.0f;
-    Vector2 m = MeasureTextEx(font, text.c_str(), fs, 1);
+    Vector2 m = MeasureTextEx(font, text.c_str(), TS(fs), 1);
     float pad = 16.0f, bh = 46.0f;
     float bw = m.x + pad * 2;
     float bx = std::clamp(r.x + r.width / 2 - bw / 2, 20.0f, VW - bw - 20.0f);
@@ -290,12 +290,14 @@ void sceneLicense() {
     bool lastPage = (licensePage == LICENSE_PAGE_N - 1);
 
     uiPanel({ 90,36,VW - 180.0f,VH - 92.0f }, 0.02f);
-    txtTitle("最终用户许可协议", VW / 2.0f, 54, 30, curTheme().title);
+    txtTitle("最终用户许可协议", VW / 2.0f, 50, 30, curTheme().title);
     txtSC("《量子花园》 Quantum Garden　·　第 " + to_string(licensePage + 1) + " / " +
-          to_string(LICENSE_PAGE_N) + " 页　" + p.title, VW / 2.0f, 96, 18, SKYBLUE);
+          to_string(LICENSE_PAGE_N) + " 页", VW / 2.0f, 92, 18, SKYBLUE);
+    // 页标题（如"重要提示"）单独做成醒目大字，避免只看小字而漏掉
+    txtTitle(p.title, VW / 2.0f, 116, 24, GOLD, false);
 
     // 逐行数组 + 运行时按行距自动步进（不依赖手写坐标，条款再长也不会重叠）
-    float y = 138;
+    float y = 158;
     for (int i = 0; i < p.n; ++i) {
         const LicLine& l = p.l[i];
         switch (l.kind) {
@@ -440,7 +442,7 @@ void sceneAchieve(float t) {
         drawMedal({ x + 34, y + 31 }, 19, ACH[i].tier, ok, t);
         txt(ACH[i].name, x + 64, y + 6, 20, ok ? RAYWHITE : Color{ 110,114,126,255 });
         // 等级标签
-        Vector2 nw = MeasureTextEx(font, ACH[i].name, 20, 1);
+        Vector2 nw = MeasureTextEx(font, ACH[i].name, TS(20), 1);
         DrawRectangleRounded({ x + 70 + nw.x, y + 9, 40, 18 }, 0.4f, 6, Fade(col, ok ? 0.85f : 0.20f));
         txtC(TIER_NAME[ACH[i].tier], x + 90 + nw.x, y + 10, 15,
              ok ? Color{ 24,26,34,255 } : Color{ 120,124,136,255 });
