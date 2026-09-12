@@ -68,8 +68,9 @@ static Rectangle guideCellRect() {
         if (grid[i].st == SEED || grid[i].st == ENTANGLED) return cellRect(i);
     return boardRect();
 }
+// 场上是否还有"可操作"的种子/纠缠（灵能花是被动产出、不可点击，不计入）
 static bool boardHasSeed() {
-    for (auto& c : grid) if (c.st == SEED || c.st == ENTANGLED || c.st == FLOWER) return true;
+    for (auto& c : grid) if (c.st == SEED || c.st == ENTANGLED) return true;
     return false;
 }
 static int boardMaxMat() {
@@ -133,8 +134,8 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
     case 4:   // 量子纠缠
         if (!boardHasEntangled()) {
             if (tool != T_ENTANGLE) { outR = rEnt; outT = "第 1 步：点【纠缠】"; return true; }
-            if (entSel < 0)         { outR = guideCellRect(); outT = "第 2 步：点第一颗种子"; return true; }
-                                    { outR = guideCellRect(); outT = "第 3 步：再点第二颗种子，完成纠缠"; return true; }
+            if (entSel < 0)         { outR = boardRect(); outT = "第 2 步：点第一颗种子"; return true; }
+                                    { outR = boardRect(); outT = "第 3 步：再点另一颗种子，完成纠缠"; return true; }
         }
         if (statEntSync < 2) {
             if (tool != T_OBSERVE) { outR = rObs; outT = "第 4 步：点【观测】"; }
