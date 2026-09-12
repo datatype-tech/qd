@@ -76,6 +76,12 @@ static Rectangle guideSeedCellExcept(int except) {
         if (i != except && grid[i].st == SEED) return cellRect(i);
     return boardRect();
 }
+// 圈出"纠缠中的种子"（观测它才会触发同步坍缩，不能圈成熟但未纠缠的普通种子）
+static Rectangle guideEntangledCell() {
+    for (int i = 0; i < SIZE * SIZE; ++i)
+        if (grid[i].st == ENTANGLED) return cellRect(i);
+    return boardRect();
+}
 // 场上是否还有"可操作"的种子/纠缠（灵能花是被动产出、不可点击，不计入）
 static bool boardHasSeed() {
     for (auto& c : grid) if (c.st == SEED || c.st == ENTANGLED) return true;
@@ -147,7 +153,7 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
         }
         if (statEntSync < 2) {
             if (tool != T_OBSERVE) { outR = rObs; outT = "第 4 步：点【观测】"; }
-            else                   { outR = guideCellRect(); outT = "观测纠缠中的种子，触发同步坍缩（" + to_string(statEntSync) + "/2）"; }
+            else                   { outR = guideEntangledCell(); outT = "观测这颗高亮的纠缠种子，触发同步坍缩（" + to_string(statEntSync) + "/2）"; }
             return true;
         }
         break;
