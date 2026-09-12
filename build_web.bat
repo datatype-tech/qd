@@ -7,7 +7,8 @@ REM    1. Emscripten SDK at D:\emsdk (uses portable Python 3.12 at
 REM       D:\emsdk_dl\py312 because emsdk needs Python >= 3.10)
 REM    2. Web raylib static lib already built:
 REM       D:\emsdk_dl\raylib_x\raylib-5.5\src\libraylib.a
-REM  Output: web\index.html + index.js + index.wasm + index.data
+REM  Output: web\game_v12.js + game_v12.wasm + game_v12.data
+REM  Update web\site.html when bumping the version, then copy it to index.html.
 REM  Run after build: run_web.bat
 REM ============================================================
 setlocal
@@ -23,7 +24,7 @@ REM "python" via PATH. If PATH holds system Python 3.9 it fails with
 REM "emscripten requires python 3.10 or above". Put portable Python 3.12
 REM first on PATH and declare EMSDK_PYTHON explicitly.
 set "EMSDK_PYTHON=%PY%"
-set "PATH=%PY%;%PATH%"
+set "PATH=D:\emsdk_dl\py312;%PATH%"
 
 cd /d %~dp0
 
@@ -31,11 +32,10 @@ cd /d %~dp0
   src\main.cpp src\data.cpp src\state.cpp src\audio.cpp src\util.cpp ^
   src\save.cpp src\achievements.cpp src\render.cpp src\game.cpp src\scenes.cpp ^
   -I%RAYLIB_DIR% -L%RAYLIB_DIR% -lraylib ^
-  -o web\index.html ^
-  --shell-file web\shell.html ^
-  --embed-file web\fonts\font.ttf@/fonts/font.ttf ^
-  --embed-file web\fonts\font_title.ttf@/fonts/font_title.ttf ^
-  --embed-file web\text.bin@/data/text.bin ^
+  -o web\game_v12.js ^
+  --preload-file web\fonts\font.ttf@/fonts/font.ttf ^
+  --preload-file web\fonts\font_title.ttf@/fonts/font_title.ttf ^
+  --preload-file web\text.bin@/data/text.bin ^
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=134217728 ^
   -sASYNCIFY -sFORCE_FILESYSTEM=1 -lidbfs.js ^
   -sEXPORTED_RUNTIME_METHODS=ccall,HEAPF32,HEAPU8,HEAP16,HEAPU16,HEAP32,HEAPU32,HEAPF64 ^

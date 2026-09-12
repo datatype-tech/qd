@@ -50,6 +50,9 @@ Font loadChineseFont() {
     // 清晰度关键在两点（图集分辨率与 mipmap），详见 util.h 中 FONT_ATLAS_PX
     // 上方的实测数据表：96px 图集 + 不生成 mipmap + 双线性过滤。
     const char* paths[] = {
+#ifdef __EMSCRIPTEN__
+        "/fonts/font.ttf",                  // Browser asset bundled into the virtual filesystem.
+#endif
         "font.ttf",
         "C:/Windows/Fonts/Deng.ttf",       // 等线：现代、干净、字重均匀
         "C:/Windows/Fonts/msyh.ttc",       // 微软雅黑：开口大，小字号可读性好
@@ -102,6 +105,9 @@ Font loadTitleFont() {
     std::vector<int> cps(uniq.begin(), uniq.end());
 
     const char* paths[] = {
+#ifdef __EMSCRIPTEN__
+        "/fonts/font_title.ttf",
+#endif
         "font_title.ttf",
         "C:/Windows/Fonts/Dengb.ttf",      // 等线 Bold
         "C:/Windows/Fonts/msyhbd.ttc",     // 雅黑 Bold
