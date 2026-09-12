@@ -1156,7 +1156,7 @@ void sceneAbout() {
         txtC("以 SIL Open Font License 1.1 授权", VW / 2.0f, y, 19, SKYBLUE); y += 26;
         txtC("字体版权 (c) 2014-2021 Adobe，保留字体名 'Source'", VW / 2.0f, y, 17, GRAY); y += 28;
         txtC("OFL 全文：https://scripts.sil.org/OFL", VW / 2.0f, y, 17, GRAY); y += 46;
-        txtC("联系方式：bitoj.dev", VW / 2.0f, y, 19, PINK); y += 30;
+        txtC("联系方式：tuboshujingqi@163.com", VW / 2.0f, y, 19, PINK); y += 30;
         txtC("本页为游戏内展示；完整许可亦随游戏附带文本文件。", VW / 2.0f, y, 16, GRAY);
 
         if (uiButton({ VW / 2.0f - 300, VH - 108.0f, 280, 46 }, "Apache 2.0 许可全文", SKYBLUE, false, 19)) { aboutPage = 1; aboutScroll = 0; }
