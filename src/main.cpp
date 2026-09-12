@@ -39,17 +39,28 @@ static void frameOnce() {
     updateAmbient();
 
     gScale = std::min(GetScreenWidth() / (float)VW, GetScreenHeight() / (float)VH);
+    float dw = floorf(VW * gScale), dh = floorf(VH * gScale);
+    // 渲染目标按"实际显示尺寸 × SSAA"自适应（同桌面版），保证全屏/窗口下
+    // 最终合成恒为干净的 SSAA 倍降采样，文字清晰。
+    int wantW = (int)dw * SSAA, wantH = (int)dh * SSAA;
+    if (wantW < 1 || wantH < 1) { wantW = VW * SSAA; wantH = VH * SSAA; }
+    if (target.texture.width != wantW || target.texture.height != wantH) {
+        UnloadRenderTexture(target);
+        target = LoadRenderTexture(wantW, wantH);
+        SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+    }
+    float renderScale = (float)wantW / VW;
+
     Vector2 rm = GetMousePosition();
-    float mdw = floorf(VW * gScale), mdh = floorf(VH * gScale);
-    float mdx = floorf((GetScreenWidth()  - mdw) * 0.5f);
-    float mdy = floorf((GetScreenHeight() - mdh) * 0.5f);
+    float mdx = floorf((GetScreenWidth()  - dw) * 0.5f);
+    float mdy = floorf((GetScreenHeight() - dh) * 0.5f);
     gMouse.x = (rm.x - mdx) / gScale;
     gMouse.y = (rm.y - mdy) / gScale;
     if (shake > 0) shake = std::max(0.0f, shake - dt * 40);
 
     BeginTextureMode(target);
         Camera2D ssCam = { 0 };
-        ssCam.zoom = (float)SSAA;
+        ssCam.zoom = renderScale;
         BeginMode2D(ssCam);
         drawBG(gTime);
         if (scene == MENU)           sceneMenu(gTime);
@@ -83,7 +94,6 @@ static void frameOnce() {
     BeginDrawing();
         ClearBackground(BLACK);
         Rectangle src = { 0,0,(float)target.texture.width,-(float)target.texture.height };
-        float dw = floorf(VW * gScale), dh = floorf(VH * gScale);
         float dx = floorf((GetScreenWidth()  - dw) * 0.5f + ox);
         float dy = floorf((GetScreenHeight() - dh) * 0.5f + oy);
         Rectangle dst = { dx, dy, dw, dh };
@@ -189,19 +199,27 @@ int main() {
         updateAmbient();
 
         gScale = std::min(GetScreenWidth() / (float)VW, GetScreenHeight() / (float)VH);
+        float dw = floorf(VW * gScale), dh = floorf(VH * gScale);
+        int wantW = (int)dw * SSAA, wantH = (int)dh * SSAA;
+        if (wantW < 1 || wantH < 1) { wantW = VW * SSAA; wantH = VH * SSAA; }
+        if (target.texture.width != wantW || target.texture.height != wantH) {
+            UnloadRenderTexture(target);
+            target = LoadRenderTexture(wantW, wantH);
+            SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+        }
+        float renderScale = (float)wantW / VW;
         // 鼠标映射必须与下方贴图的"整数像素吸附"完全一致，
         // 否则光标位置会与画面产生最多 1px 的偏移，影响点击判定。
         Vector2 rm = GetMousePosition();
-        float mdw = floorf(VW * gScale), mdh = floorf(VH * gScale);
-        float mdx = floorf((GetScreenWidth()  - mdw) * 0.5f);
-        float mdy = floorf((GetScreenHeight() - mdh) * 0.5f);
+        float mdx = floorf((GetScreenWidth()  - dw) * 0.5f);
+        float mdy = floorf((GetScreenHeight() - dh) * 0.5f);
         gMouse.x = (rm.x - mdx) / gScale;
         gMouse.y = (rm.y - mdy) / gScale;
         if (shake > 0) shake = std::max(0.0f, shake - dt * 40);
 
         BeginTextureMode(target);
             Camera2D ssCam = { 0 };
-            ssCam.zoom = (float)SSAA;
+            ssCam.zoom = renderScale;
             BeginMode2D(ssCam);
             drawBG(gTime);
             if (scene == MENU)           sceneMenu(gTime);
@@ -235,7 +253,6 @@ int main() {
         BeginDrawing();
             ClearBackground(BLACK);
             Rectangle src = { 0,0,(float)target.texture.width,-(float)target.texture.height };
-            float dw = floorf(VW * gScale), dh = floorf(VH * gScale);
             float dx = floorf((GetScreenWidth()  - dw) * 0.5f + ox);
             float dy = floorf((GetScreenHeight() - dh) * 0.5f + oy);
             Rectangle dst = { dx, dy, dw, dh };

@@ -12,12 +12,11 @@ using std::string;
 using std::to_string;
 
 // ==================== 虚拟分辨率与棋盘常量 ====================
-// SSAA：超采样倍数。所有绘制逻辑仍使用 VW×VH 虚拟坐标，
-// 内部画布放大 SSAA 倍后再缩回，为几何图形与文字提供抗锯齿。
-// （raylib 无法给 RenderTexture 开 MSAA，故用超采样替代。）
-// 3x：全屏时（如 1920x1080）内部画布 3840x2160 缩到屏上仍是 2 倍干净降采样，
-// 文字在全屏下保持与窗口同等的锐度（原 2x 在全屏只有约 1.33 倍，文字发虚）。
-const int SSAA = 3;
+// SSAA：超采样倍数。所有绘制逻辑仍使用 VW×VH 虚拟坐标。
+// 注意：渲染目标不再固定为 VW*SSAA，而是按"屏幕实际显示尺寸 × SSAA"自适应
+// （见 main.cpp），保证最终合成恒为干净的 SSAA 倍降采样，文字在窗口/全屏下都清晰。
+// SSAA 取 2：倍数越高，整帧降采样的平均范围越大，文字反而更柔（实测 3x 比 2x 更糊）。
+const int SSAA = 2;
 const int VW = 1280, VH = 720;
 const int SIZE = 5, CELL = 96, GAP = 8;
 const int GRID_X = 40, GRID_Y = 150;
