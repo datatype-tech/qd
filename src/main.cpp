@@ -86,13 +86,6 @@ static void frameOnce() {
         if (luxActive()) drawLuxFrame(gTime);
         txtS(muted ? "音效已关闭 (M)" : "音效已开启 (M)",
             VW - 210.0f, VH - 26.0f, 18, muted ? GRAY : Fade(SKYBLUE, 0.6f));
-        {
-            char diag[160];
-            std::snprintf(diag, sizeof(diag), "DIAG win=%dx%d scale=%.2f canvas=%dx%d atlas=%d",
-                          GetScreenWidth(), GetScreenHeight(), gScale,
-                          target.texture.width, target.texture.height, FONT_ATLAS_PX);
-            txtS(diag, 8, VH - 22.0f, 16, Color{ 255,210,90,255 });
-        }
         EndMode2D();
     EndTextureMode();
 
@@ -264,13 +257,6 @@ int main() {
             if (luxActive()) drawLuxFrame(gTime);        // 豪华界面：覆盖在面板之上
             txtS(muted ? "音效已关闭 (M)" : "音效已开启 (M)",
                 VW - 210.0f, VH - 26.0f, 18, muted ? GRAY : Fade(SKYBLUE, 0.6f));
-            {
-                char diag[160];
-                std::snprintf(diag, sizeof(diag), "DIAG win=%dx%d scale=%.2f canvas=%dx%d atlas=%d",
-                              GetScreenWidth(), GetScreenHeight(), gScale,
-                              target.texture.width, target.texture.height, FONT_ATLAS_PX);
-                txtS(diag, 8, VH - 22.0f, 16, Color{ 255,210,90,255 });
-            }
             EndMode2D();
         EndTextureMode();
 

@@ -82,6 +82,6 @@ G
 N 再次提醒：启动游戏即代表您已阅读、理解并同意受本协议约束。
 G
 S 联系方式
-B 邮箱地址：bit@lloj.dev
-B 邮箱地址<2>：tuboshujingqi@163.com
+B 邮箱地址：tuboshujingqi@163.com
+B 游戏网站：https://qg.datatype.me
 B 友情赞助：@Simalth

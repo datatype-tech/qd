@@ -691,5 +691,6 @@ const char* const UI_LITERALS[] = {
     "以 SIL Open Font License 1.1 授权 字体版权 (c) 2014-2021 Adobe，保留字体名 'Source'",
     "OFL 全文：联系方式：本页为游戏内展示；完整许可亦随游戏附带文本文件。",
     "Apache 2.0 许可全文 SIL OFL 1.1 字体许可全文 滚轮滚动 返回关于",
+    "游戏网站：https://qg.datatype.me 联系方式：tuboshujingqi@163.com",
 };
 const int UI_LITERAL_N = sizeof(UI_LITERALS) / sizeof(UI_LITERALS[0]);
