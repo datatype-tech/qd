@@ -17,7 +17,9 @@
 // 另：绝不生成 mipmap —— GenTextureMipmaps + TRILINEAR 在小字号会取到
 // 模糊的低阶 mipmap，实测边缘锐度直接腰斩（梯度 213 → 102，灰边 31%→70%）。
 const int FONT_ATLAS_PX  = 96;
-const int TITLE_ATLAS_PX = 96;
+// 标题字号最大到 58px，3x 超采样下需 174px 才不放大；用 192px 图集保证
+// 大字标题在全屏下依然锐利（正文 96px 图集已足够，正文最大约 30px×3=90px）。
+const int TITLE_ATLAS_PX = 192;
 
 // font       正文字体
 // fontTitle  标题 / 强调字体（更粗字重）

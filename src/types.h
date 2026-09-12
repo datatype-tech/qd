@@ -15,7 +15,9 @@ using std::to_string;
 // SSAA：超采样倍数。所有绘制逻辑仍使用 VW×VH 虚拟坐标，
 // 内部画布放大 SSAA 倍后再缩回，为几何图形与文字提供抗锯齿。
 // （raylib 无法给 RenderTexture 开 MSAA，故用超采样替代。）
-const int SSAA = 2;
+// 3x：全屏时（如 1920x1080）内部画布 3840x2160 缩到屏上仍是 2 倍干净降采样，
+// 文字在全屏下保持与窗口同等的锐度（原 2x 在全屏只有约 1.33 倍，文字发虚）。
+const int SSAA = 3;
 const int VW = 1280, VH = 720;
 const int SIZE = 5, CELL = 96, GAP = 8;
 const int GRID_X = 40, GRID_Y = 150;
