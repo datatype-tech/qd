@@ -160,7 +160,7 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
     case 5:   // 商店
         if (statBuy < 2) { outR = rShop; outT = "点【进入量子商店】选购商品，买满 2 件即可通关（" + to_string(statBuy) + "/2）"; return true; }
         break;
-    default:  // 第 7、8 关：自主应对
+    case 6:   // 第 7 关：风暴与退相干（自主应对，给基础指路）
         if (!boardHasSeed()) {
             if (tool != T_PLANT) { outR = rPlant; outT = "点【种植】铺开局面"; }
             else                 { outR = boardRect(); outT = "点空地种下种子"; }
@@ -168,6 +168,8 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
         }
         if (tool != T_OBSERVE) { outR = rObs; outT = "点【观测】收割成熟种子"; return true; }
         outR = guideCellRect(); outT = "成熟了要及时收割，保持场上有花持续产出"; return true;
+    case 7:   // 第 8 关：毕业考，不加引导，让玩家自由发挥
+        break;
     }
     return false;
 }
@@ -1035,6 +1037,25 @@ void sceneResult(float t) {
     uiPanel({ VW / 2.0f - 290,60,580,600 }, 0.04f);
 
     if (mode == M_TUTORIAL) {
+        if (tutIdx == 7 && tutPassed) {
+            // 最后一关通关：毕业结束语
+            txtTitle("毕 业 典 礼", VW / 2.0f, 96, 42, GOLD);
+            float ey = 160;
+            txtC("恭喜你，园丁！八堂课，你已全部通关。", VW / 2.0f, ey, 22, GOLD); ey += 34;
+            txtC("从第一次让波函数坍缩时的小心翼翼，", VW / 2.0f, ey, 21, RAYWHITE); ey += 30;
+            txtC("到如今在熵增里也能从容收获——", VW / 2.0f, ey, 21, RAYWHITE); ey += 30;
+            txtC("你学会了种植、观测与纠缠，", VW / 2.0f, ey, 21, RAYWHITE); ey += 30;
+            txtC("也学会了在风暴与等待中保持耐心。", VW / 2.0f, ey, 21, RAYWHITE); ey += 36;
+            txtC("量子花园真正的旅程，此刻才刚刚开始。", VW / 2.0f, ey, 22, GOLD); ey += 36;
+            txtC("去经典模式追逐更高的分数，", VW / 2.0f, ey, 21, RAYWHITE); ey += 30;
+            txtC("去无尽模式挑战生存的极限，", VW / 2.0f, ey, 21, RAYWHITE); ey += 30;
+            txtC("去每日挑战与全世界的园丁一决高下。", VW / 2.0f, ey, 21, RAYWHITE); ey += 36;
+            txtC("花园永远为你留着一块空地，", VW / 2.0f, ey, 21, RAYWHITE); ey += 30;
+            txtC("愿每一次观测，都开出你想要的花。", VW / 2.0f, ey, 22, PINK); ey += 16;
+            if (uiButton({ VW / 2.0f - 230,560,220,48 }, "开始经典模式", GREEN, false, 21)) resetGame(M_CLASSIC, 1);
+            if (uiButton({ VW / 2.0f + 10,560,220,48 }, "返回主菜单", DARKGRAY, false, 21)) scene = MENU;
+            return;
+        }
         txtTitle(tutPassed ? "通 关" : "本关未完成", VW / 2.0f, 100, 46, tutPassed ? GOLD : GRAY);
         txtC(TUT[tutIdx].title, VW / 2.0f, 170, 24, RAYWHITE);
         txtC(tutPassed ? "本关目标已达成！" : "再试一次，慢慢来。", VW / 2.0f, 220, 24, SKYBLUE);
