@@ -3,6 +3,7 @@
 // ============================================================
 #include "data.h"
 #include "state.h"     // curTheme() 需要读取 rec（当前选中的装扮与豪华界面开关）
+#include "util.h"      // qgEmbeddedText()：从内嵌数据读取协议文本（单文件发布）
 #include <cmath>
 
 DiffCfg CFG[4] = {
@@ -443,65 +444,79 @@ void licFallback() {
 
 } // namespace
 
+// 解码一个 QGX1 数据块并物化协议页；成功返回 true。
+// 这样内嵌数据与外部文件可以共用同一套解码逻辑。
+static bool licDecodeBlob(const unsigned char* raw, int rawN) {
+    if (!raw || rawN < 20) return false;
+
+    unsigned nonce = 0, plainLen = 0, crcStored = 0;
+    std::memcpy(&nonce,     raw + 4,  4);              // 小端布局见打包脚本
+    std::memcpy(&plainLen,  raw + 8,  4);
+    std::memcpy(&crcStored, raw + 12, 4);
+    if (std::memcmp(raw, "QGX1", 4) != 0 || plainLen == 0 ||
+        (int)(16 + plainLen) != rawN) return false;
+
+    std::string plain(plainLen, '\0');
+    LicXor xs(licFNV1a((const unsigned char*)LIC_KEY, sizeof(LIC_KEY) - 1) ^ nonce);
+    for (unsigned i = 0; i < plainLen; ++i)
+        plain[i] = (char)(raw[16 + i] ^ xs.next());
+
+    if (licCRC32((const unsigned char*)plain.data(), plain.size()) != crcStored)
+        return false;
+
+    // ---- 解析行指令：PAGE <标题> / S|B|N <文本> / G ----
+    std::vector<std::string> titles;
+    std::vector<std::vector<LicTmpRow>> pages;
+    size_t pos = 0;
+    while (pos <= plain.size()) {
+        size_t e = plain.find('\n', pos);
+        if (e == std::string::npos) e = plain.size();
+        std::string line = plain.substr(pos, e - pos);
+        pos = e + 1;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty()) continue;
+        if (line.rfind("PAGE ", 0) == 0 && line.size() > 5) {
+            titles.push_back(line.substr(5));
+            pages.push_back({});
+            continue;
+        }
+        if (pages.empty()) continue;                   // 首页之前的杂散行
+        if (line == "G") { pages.back().push_back({ LK_GAP, "" }); continue; }
+        if (line.size() > 2 && line[1] == ' ') {
+            int k = -1;
+            if (line[0] == 'S') k = LK_SECTION;
+            else if (line[0] == 'B') k = LK_BODY;
+            else if (line[0] == 'N') k = LK_NOTE;
+            if (k >= 0) { pages.back().push_back({ k, line.substr(2) }); continue; }
+        }
+    }
+    if (pages.empty() || pages.size() != titles.size())
+        return false;                                  // 结构不完整
+
+    licMaterialize(titles, pages);
+    return true;
+}
+
 bool loadSecureText() {
     if (LICENSE_PAGES) return true;                        // 幂等
 
-    const char* paths[] = { "/data/text.bin", "text.bin" };// 网页打包路径优先
+#ifndef __EMSCRIPTEN__
+    // 【单文件发布】优先使用内嵌的协议数据，不依赖外部 text.bin
+    {
+        int n = 0;
+        const unsigned char* data = qgEmbeddedText(&n);
+        if (data && n > 0 && licDecodeBlob(data, n)) return true;
+    }
+#endif
+
+    const char* paths[] = { "/data/text.bin", "text.bin" };// 网页打包路径 / 开发期外部文件
     for (const char* path : paths) {
         int rawN = 0;
         unsigned char* raw = LoadFileData(path, &rawN);
         if (!raw) continue;
-        if (rawN < 20) { UnloadFileData(raw); continue; }
-
-        unsigned nonce = 0, plainLen = 0, crcStored = 0;
-        std::memcpy(&nonce,     raw + 4,  4);              // 小端布局见打包脚本
-        std::memcpy(&plainLen,  raw + 8,  4);
-        std::memcpy(&crcStored, raw + 12, 4);
-        if (std::memcmp(raw, "QGX1", 4) != 0 || plainLen == 0 ||
-            (int)(16 + plainLen) != rawN) { UnloadFileData(raw); continue; }
-
-        std::string plain(plainLen, '\0');
-        LicXor xs(licFNV1a((const unsigned char*)LIC_KEY,
-                           sizeof(LIC_KEY) - 1) ^ nonce);
-        for (unsigned i = 0; i < plainLen; ++i)
-            plain[i] = (char)(raw[16 + i] ^ xs.next());
+        bool ok = licDecodeBlob(raw, rawN);
         UnloadFileData(raw);
-
-        if (licCRC32((const unsigned char*)plain.data(),
-                     plain.size()) != crcStored)
-            continue;                                      // 内容损坏，试下一路径
-
-        // ---- 解析行指令：PAGE <标题> / S|B|N <文本> / G ----
-        std::vector<std::string> titles;
-        std::vector<std::vector<LicTmpRow>> pages;
-        size_t pos = 0;
-        while (pos <= plain.size()) {
-            size_t e = plain.find('\n', pos);
-            if (e == std::string::npos) e = plain.size();
-            std::string line = plain.substr(pos, e - pos);
-            pos = e + 1;
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            if (line.empty()) continue;
-            if (line.rfind("PAGE ", 0) == 0 && line.size() > 5) {
-                titles.push_back(line.substr(5));
-                pages.push_back({});
-                continue;
-            }
-            if (pages.empty()) continue;                   // 首页之前的杂散行
-            if (line == "G") { pages.back().push_back({ LK_GAP, "" }); continue; }
-            if (line.size() > 2 && line[1] == ' ') {
-                int k = -1;
-                if (line[0] == 'S') k = LK_SECTION;
-                else if (line[0] == 'B') k = LK_BODY;
-                else if (line[0] == 'N') k = LK_NOTE;
-                if (k >= 0) { pages.back().push_back({ k, line.substr(2) }); continue; }
-            }
-        }
-        if (pages.empty() || pages.size() != titles.size())
-            continue;                                      // 结构不完整，试下一路径
-
-        licMaterialize(titles, pages);
-        return true;
+        if (ok) return true;
     }
 
     licFallback();
@@ -670,5 +685,11 @@ const char* const UI_LITERALS[] = {
     "量子花园真正的旅程，此刻才刚刚开始。去经典模式追逐更高的分数，去无尽模式挑战生存的极限，",
     "去每日挑战与全世界的园丁一决高下。花园永远为你留着一块空地，愿每一次观测，都开出你想要的花。",
     "开始经典模式 返回主菜单",
+    // 6.7 新增：关于 / 开源许可页
+    "关于 开源许可 关 于 版权所有 © 2026 bd_sakura，保留所有权利",
+    "本游戏以 Apache License 2.0 授权发布 许可全文：内嵌字体：思源黑体 Noto Sans SC",
+    "以 SIL Open Font License 1.1 授权 字体版权 (c) 2014-2021 Adobe，保留字体名 'Source'",
+    "OFL 全文：联系方式：本页为游戏内展示；完整许可亦随游戏附带文本文件。",
+    "Apache 2.0 许可全文 SIL OFL 1.1 字体许可全文 滚轮滚动 返回关于",
 };
 const int UI_LITERAL_N = sizeof(UI_LITERALS) / sizeof(UI_LITERALS[0]);

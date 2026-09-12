@@ -236,6 +236,11 @@ void sceneMenu(float t) {
     }
     // 首次进入游戏的引导遮罩在函数末尾统一绘制（保证盖在所有元素之上）
 
+    // 关于 / 开源许可（游戏版权、Apache 2.0、字体 OFL）
+    if (uiButton({ 40, 644, 250, 42 }, "关于 / 开源许可", SKYBLUE, false, 18)) {
+        aboutPage = 0; aboutScroll = 0; scene = ABOUT; playSfx(sfxClick);
+    }
+
     uiPanel({ 40,132,250,400 }, 0.06f);
     txtS("历史最佳记录", 62, 143, 22, GOLD);
     txt("教程进度：" + to_string(rec.tutProgress) + " / 8 关", 62, 175, 18, GREEN);
@@ -1109,4 +1114,78 @@ void sceneResult(float t) {
         copied = true;
     }
     if (uiButton({ VW / 2.0f + 100,596,170,44 }, "返回主菜单", DARKGRAY, false, 21)) scene = MENU;
+}
+
+// ==================== 场景：关于 / 开源许可 ====================
+// 把内嵌的许可全文按行拆分（只读，缓存一次）
+static const std::vector<std::string>& aboutLicenseLines(int which) {
+    static std::vector<std::string> cache[2];
+    static bool loaded[2] = { false, false };
+    if (!loaded[which]) {
+        loaded[which] = true;
+        int n = 0;
+        const unsigned char* d = qgEmbeddedLicense(which, &n);
+        if (d && n > 0) {
+            std::string s((const char*)d, (size_t)n);
+            size_t pos = 0;
+            while (pos <= s.size()) {
+                size_t e = s.find('\n', pos);
+                if (e == std::string::npos) e = s.size();
+                std::string line = s.substr(pos, e - pos);
+                if (!line.empty() && line.back() == '\r') line.pop_back();
+                cache[which].push_back(line);
+                if (e >= s.size()) break;
+                pos = e + 1;
+            }
+        }
+    }
+    return cache[which];
+}
+
+void sceneAbout() {
+    uiPanel({ 90,36,VW - 180.0f,VH - 86.0f }, 0.02f);
+
+    if (aboutPage == 0) {
+        txtTitle("关 于", VW / 2.0f, 56, 36, curTheme().title);
+        float y = 124;
+        txtC("《量子花园》 Quantum Garden", VW / 2.0f, y, 24, GOLD); y += 40;
+        txtC("版权所有 © 2026 bd_sakura，保留所有权利", VW / 2.0f, y, 20, RAYWHITE); y += 34;
+        txtC("本游戏以 Apache License 2.0 授权发布", VW / 2.0f, y, 20, SKYBLUE); y += 28;
+        txtC("许可全文：https://www.apache.org/licenses/LICENSE-2.0", VW / 2.0f, y, 17, GRAY); y += 46;
+        txtC("内嵌字体：思源黑体 Noto Sans SC", VW / 2.0f, y, 20, RAYWHITE); y += 28;
+        txtC("以 SIL Open Font License 1.1 授权", VW / 2.0f, y, 19, SKYBLUE); y += 26;
+        txtC("字体版权 (c) 2014-2021 Adobe，保留字体名 'Source'", VW / 2.0f, y, 17, GRAY); y += 28;
+        txtC("OFL 全文：https://scripts.sil.org/OFL", VW / 2.0f, y, 17, GRAY); y += 46;
+        txtC("联系方式：bitoj.dev", VW / 2.0f, y, 19, PINK); y += 30;
+        txtC("本页为游戏内展示；完整许可亦随游戏附带文本文件。", VW / 2.0f, y, 16, GRAY);
+
+        if (uiButton({ VW / 2.0f - 300, VH - 108.0f, 280, 46 }, "Apache 2.0 许可全文", SKYBLUE, false, 19)) { aboutPage = 1; aboutScroll = 0; }
+        if (uiButton({ VW / 2.0f + 20, VH - 108.0f, 280, 46 }, "SIL OFL 1.1 字体许可全文", VIOLET, false, 19)) { aboutPage = 2; aboutScroll = 0; }
+        if (uiButton({ VW / 2.0f - 90, VH - 54.0f, 180, 40 }, "返回主菜单", DARKGRAY, false, 20)) { aboutPage = 0; scene = MENU; }
+        return;
+    }
+
+    // ---- 许可全文（滚轮滚动）----
+    const std::vector<std::string>& lines = aboutLicenseLines(aboutPage - 1);
+    txtTitle(aboutPage == 1 ? "Apache License 2.0" : "SIL Open Font License 1.1",
+             VW / 2.0f, 50, 26, curTheme().title);
+
+    int visible = 21;
+    int maxScroll = std::max(0, (int)lines.size() - visible);
+    aboutScroll -= GetMouseWheelMove() * 3.0f;
+    if (aboutScroll < 0) aboutScroll = 0;
+    if (aboutScroll > maxScroll) aboutScroll = (float)maxScroll;
+
+    float y = 92;
+    for (int i = 0; i < visible; ++i) {
+        int idx = (int)aboutScroll + i;
+        if (idx >= (int)lines.size()) break;
+        txt(lines[idx], 120, y, 16, RAYWHITE);
+        y += 24;
+    }
+    txt("滚轮滚动  " + to_string((int)aboutScroll + 1) + " / " + to_string((int)lines.size()),
+        120, VH - 62.0f, 16, GRAY);
+
+    if (uiButton({ VW / 2.0f - 220, VH - 56.0f, 200, 40 }, "返回关于", DARKGRAY, false, 19)) aboutPage = 0;
+    if (uiButton({ VW / 2.0f + 20, VH - 56.0f, 200, 40 }, "返回主菜单", DARKGRAY, false, 19)) { aboutPage = 0; scene = MENU; }
 }

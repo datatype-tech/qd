@@ -30,7 +30,7 @@ struct FloatTxt { Vector2 pos; string text; Color col; float life, size; };
 struct Particle { Vector2 pos, vel; float life, maxLife, size; Color col; };
 struct Shock { Vector2 pos; float r, maxR, life; Color col; };
 
-enum Scene { MENU, HELP, PLAY, RESULT, TUT_SEL, TUT_BRIEF, ACHIEVE, SKINSEL, META, STATS, LICENSE, SLOTS };
+enum Scene { MENU, HELP, PLAY, RESULT, TUT_SEL, TUT_BRIEF, ACHIEVE, SKINSEL, META, STATS, LICENSE, SLOTS, ABOUT };
 enum Tool { T_PLANT, T_OBSERVE, T_ENTANGLE };
 enum Mode { M_CLASSIC, M_ENDLESS, M_TUTORIAL, M_DAILY };
 

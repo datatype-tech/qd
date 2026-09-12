@@ -31,6 +31,14 @@ inline float TS(float sz) { return sz * TEXT_SCALE; }
 Font loadChineseFont();
 Font loadTitleFont();
 
+// 内嵌资源访问（数据由 embedded_assets.h 自动生成；用于桌面单文件发布，
+// 让可执行文件不依赖外部 font.ttf / text.bin）。网页版返回空。
+// title=false 返回正文字体数据、true 返回标题字体数据；size 输出字节数。
+const unsigned char* qgEmbeddedFont(bool title, int* size);
+const unsigned char* qgEmbeddedText(int* size);
+// 内嵌开源许可全文：which=0 返回 Apache 2.0，which=1 返回 SIL OFL 1.1
+const unsigned char* qgEmbeddedLicense(int which, int* size);
+
 int randInt(int lo, int hi);
 float randF();
 Color icol(int i);

@@ -10,6 +10,35 @@
 #include <algorithm>
 #include <random>
 
+#include "embedded_licenses.h"  // 内嵌开源许可全文（桌面与网页都用）
+
+#ifndef __EMSCRIPTEN__
+#include "embedded_assets.h"   // 内嵌字体/协议数据（桌面单文件发布用）
+#endif
+
+// ============================================================
+//  内嵌资源访问
+// ============================================================
+// 许可全文：两个平台都可用（体积小）
+const unsigned char* qgEmbeddedLicense(int which, int* size) {
+    if (which == 0) { if (size) *size = (int)QG_LICENSE_APACHE_SIZE; return QG_LICENSE_APACHE; }
+    if (which == 1) { if (size) *size = (int)QG_LICENSE_OFL_SIZE; return QG_LICENSE_OFL; }
+    if (size) *size = 0; return nullptr;
+}
+
+#ifndef __EMSCRIPTEN__
+const unsigned char* qgEmbeddedFont(bool title, int* size) {
+    if (title) { if (size) *size = (int)QG_FONT_TITLE_TTF_SIZE; return QG_FONT_TITLE_TTF; }
+    if (size) *size = (int)QG_FONT_TTF_SIZE; return QG_FONT_TTF;
+}
+const unsigned char* qgEmbeddedText(int* size) {
+    if (size) *size = (int)QG_TEXT_BIN_SIZE; return QG_TEXT_BIN;
+}
+#else
+const unsigned char* qgEmbeddedFont(bool, int* size) { if (size) *size = 0; return nullptr; }
+const unsigned char* qgEmbeddedText(int* size) { if (size) *size = 0; return nullptr; }
+#endif
+
 // ==================== 字体 ====================
 Font loadChineseFont() {
     std::set<int> uniq;
@@ -43,6 +72,21 @@ Font loadChineseFont() {
         for (int i = 0; i < LICENSE_PAGES[p].n; ++i) add(LICENSE_PAGES[p].l[i].s);
     }
     std::vector<int> cps(uniq.begin(), uniq.end());
+
+    // 【单文件发布】优先使用内嵌字体数据，不依赖外部 font.ttf
+#ifndef __EMSCRIPTEN__
+    {
+        int n = 0;
+        const unsigned char* data = qgEmbeddedFont(false, &n);
+        if (data && n > 0) {
+            Font f = LoadFontFromMemory(".ttf", data, n, FONT_ATLAS_PX, cps.data(), (int)cps.size());
+            if (f.texture.id != 0 && f.glyphCount > 100) {
+                SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+                return f;
+            }
+        }
+    }
+#endif
 
     // 字体候选按"质感"排序：优先等线/黑体这类字形饱满、笔画均匀的现代字体，
     // 微软雅黑与等线在小字号下的字形开口更大，锐度明显好于宋体。
@@ -103,6 +147,21 @@ Font loadTitleFont() {
     }
     for (int i = 0; i < UI_LITERAL_N; ++i) add(UI_LITERALS[i]);
     std::vector<int> cps(uniq.begin(), uniq.end());
+
+    // 【单文件发布】优先使用内嵌标题字体数据
+#ifndef __EMSCRIPTEN__
+    {
+        int n = 0;
+        const unsigned char* data = qgEmbeddedFont(true, &n);
+        if (data && n > 0) {
+            Font f = LoadFontFromMemory(".ttf", data, n, TITLE_ATLAS_PX, cps.data(), (int)cps.size());
+            if (f.texture.id != 0 && f.glyphCount > 100) {
+                SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+                return f;
+            }
+        }
+    }
+#endif
 
     const char* paths[] = {
 #ifdef __EMSCRIPTEN__

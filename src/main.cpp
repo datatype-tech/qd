@@ -74,6 +74,7 @@ static void frameOnce() {
         else if (scene == STATS)     sceneStats();
         else if (scene == LICENSE)   sceneLicense();
         else if (scene == SLOTS)     sceneSlots();
+        else if (scene == ABOUT)     sceneAbout();
         else if (scene == PLAY) {
             uiLock = shopOpen;
             scenePlay(dt, gTime);
@@ -251,6 +252,7 @@ int main() {
             else if (scene == STATS)     sceneStats();
             else if (scene == LICENSE)   sceneLicense();
             else if (scene == SLOTS)     sceneSlots();
+        else if (scene == ABOUT)     sceneAbout();
             else if (scene == PLAY) {
                 uiLock = shopOpen;
                 scenePlay(dt, gTime);
