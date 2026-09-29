@@ -125,6 +125,10 @@ void clearAllRecords() {
     curRunSlot = 0;
     saveWasLegacy = false;           // 旧档案已被删除，冲突解除
 
+    // 成就弹窗（AchToast）是独立的全局队列，不属于 rec；不清掉的话清档之后
+    // 还会飘出"成就解锁"的提示，而对应的成就刚刚已经被删了。
+    toasts.clear();
+
     // 写回一份全新的初始档案：这样即使玩家清空后直接关掉游戏（主循环末尾
     // 的 saveRecords() 没来得及跑），磁盘上留下的也是干净的初始档案。
     saveRecords();

@@ -194,22 +194,54 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
 // ============================================================
 static bool s_clearConfirm = false;   // 弹窗是否显示
 static float s_clearDoneT = -99.0f;   // 上次清空完成的时刻（用于设置页提示）
+static float s_clearOpenT = -99.0f;   // 弹窗是在哪一帧被打开的（见下方的开帧保护）
+
+// ============================================================
+//  s_licenseRevisit —— "本次运行内已经弹过一次用户协议"
+//  ------------------------------------------------------------
+//  清空纪录会把 rec.licenseAgreed 复位，于是内存里立刻变成"没同意过"。而
+//  sceneLicense 在"没同意过"时是不给返回按钮的（只留"同意并继续 / 不同意，
+//  退出游戏"），main.cpp 还专门禁掉了这两个状态下的 H 键 —— 玩家清完档从
+//  主菜单点进"关于 / 用户许可协议"，就会被关在一个只能同意或退出游戏的
+//  死胡同里，这既不是初次启动状态，也不是清档提示里承诺的行为。
+//  真正"重新弹协议"的时机是下次启动（main.cpp 读到 licenseAgreed=false 会
+//  直接把场景设为 LICENSE）。本次运行内则用这个标记把协议页降级成可返回的
+//  浏览模式，保证玩家随时走得掉。
+// ============================================================
+static bool s_licenseRevisit = false;
 
 // 请求打开确认弹窗（点"清空纪录"按钮时调用）。
 // 单独包一层是为了让"谁请求弹窗"与"弹窗自己怎么画"解耦：这样弹窗可以整体
 // 画在请求方之后，配合下面的 uiLock 把下层的点击一并封掉。
-static void askClearConfirm() { s_clearConfirm = true; }
+static void askClearConfirm(float t) { s_clearConfirm = true; s_clearOpenT = t; }
 
-// 请求方（设置页 / 主菜单）在绘制交互按钮之前调用：把下层的按钮锁掉，
-// 否则同一帧里下层按钮与弹窗按钮会同时命中（uiButton 的判定只看鼠标与矩形
-// 是否相交，而 IsMouseButtonPressed 整帧为真）。
+// 请求方（设置页）在绘制交互按钮之前调用：把下层的按钮锁掉，否则同一帧里
+// 下层按钮与弹窗按钮会同时命中。
+// 注意：uiButton 本身**不会**置位 uiLock（它只按 uiLock 判断 hover，命中后
+// 播一声点击音，见 util.cpp），所以锁必须由请求方显式加上、由弹窗显式解除。
 static void lockUnderDialog() { if (s_clearConfirm) uiLock = true; }
 
+// 供 main.cpp 查询：模态确认弹窗是否开着（用来屏蔽全局快捷键）
+bool isModalOpen() { return s_clearConfirm; }
+
 static void drawClearConfirm(float t) {
-    // 先解除 uiLock —— 请求方在弹窗打开期间把它置位，用来封掉下层按钮。
-    // 弹窗自己的两个按钮要能点，所以在这里复位；复位后 uiButton 内部也不会
-    // 再把它设回 true。
+    // 解除 uiLock：请求方在弹窗打开期间把它置位，用来封掉下层按钮。
+    // 弹窗自己的两个按钮要能点，所以在这里复位。
     uiLock = false;
+
+    // ============================================================
+    //  【开帧保护】弹窗被打开的那一帧不接受按钮点击
+    //  ------------------------------------------------------------
+    //  IsMouseButtonPressed 是"整帧为真"的：玩家点"清空纪录"的那个按下事件，
+    //  在同一帧里还能被别的按钮看到。锁是在本函数之前由请求方加的，而玩家点
+    //  "清空纪录"时 s_clearConfirm 还是 false，所以那一帧**根本没有上锁**。
+    //  目前只是因为"确认清空"与"清空纪录"两个矩形上下差了 42px 才没出事 ——
+    //  一旦以后布局改动让两者相交，玩家点开弹窗的那一下就会直接把纪录清光，
+    //  等于没有二次确认。
+    //  这里用"打开帧不响应弹窗按钮"把这个隐患从"靠几何位置侥幸"变成"靠代码
+    //  保证"：弹窗照常绘制（玩家立刻看到确认框），但按钮要等下一帧才生效。
+    // ============================================================
+    bool justOpened = (t == s_clearOpenT);
 
     // 全屏遮罩，只负责"看起来"压暗下层
     DrawRectangle(0, 0, VW, VH, Fade(BLACK, 0.72f));
@@ -231,11 +263,15 @@ static void drawClearConfirm(float t) {
          VW / 2.0f, box.y + 120, 20, GOLD);
     txtC("旧版本存档格式不兼容时，用这里清空即可解决冲突。",
          VW / 2.0f, box.y + 154, 19, GRAY);
-    // 单独用高亮色强调"必须重启"，避免和上面的说明混成一片而被忽略
+    // 【弹窗文案】承诺必须与实际行为一致：重启后会重新弹用户协议**与新手引导**。
+    // 后者依赖 main.cpp 里"离开主菜单且不是查看类场景才标记引导已看"的修正，
+    // 否则清完档当场就会被记成"引导看过了"，这句承诺就成了假话。
     txtC("清空后需重启游戏：重新打开才会回到初次启动状态，",
          VW / 2.0f, box.y + 190, 20, ORANGE);
     txtC("并重新弹出用户协议与新手引导。",
          VW / 2.0f, box.y + 220, 20, ORANGE);
+
+    if (justOpened) return;   // 开帧保护：这一帧只有绘制，不处理任何点击
 
     if (uiButton({ box.x + 60, box.y + boxH - 64, 230, 46 }, "取消", DARKGRAY, false, 21) ||
         IsKeyPressed(KEY_ESCAPE)) {
@@ -244,6 +280,13 @@ static void drawClearConfirm(float t) {
     }
     if (uiButton({ box.x + boxW - 290, box.y + boxH - 64, 230, 46 }, "确认清空", RED, false, 21)) {
         clearAllRecords();
+        // 清档后立刻回主菜单：本帧内存里的 licenseAgreed 已经是 false，而
+        // sceneLicense 是按"没同意过"渲染的（没有返回按钮）。如果玩家这时从
+        // 主菜单点进"关于 / 用户许可协议"，就会被关在一个只能"同意"或"退出
+        // 游戏"的死胡同里 —— 那不是初次启动状态，也不是我们承诺的行为。
+        // 真正的"重新弹协议"留给下次启动（main.cpp 读到 licenseAgreed=false
+        // 会直接把场景设为 LICENSE），这里只是把玩家送回菜单。
+        scene = MENU;
         s_clearConfirm = false;
         s_clearDoneT = t;
         playSfx(sfxClick);
@@ -263,9 +306,10 @@ static void drawClearConfirm(float t) {
 void sceneSettings(float t) {
     lockUnderDialog();                    // 弹窗开着时封掉本页按钮
 
-    // 面板高度按内容收口：最后一行文字落在 y≈424（清空后的提示），面板到 600
-    // 结束；再用 VH-94=626 放返回按钮，避免底部留出一大片空白。
-    uiPanel({ 140, 60, VW - 280.0f, 540 }, 0.02f);
+    // 【面板高度】按内容收口：最后一行文字是清空后的提示（y=424，行高约 24），
+    // 所以面板到 568 结束即可；返回按钮放在面板下方的 528..570。
+    // 之前写成 60..600 会剩下一大片空面板。
+    uiPanel({ 140, 60, VW - 280.0f, 508 }, 0.02f);
     txtTitle("设 置", VW / 2.0f, 76, 36, curTheme().title);
     txtC("设置会即时生效，不需要确认", VW / 2.0f, 126, 19, GRAY);
 
@@ -294,12 +338,12 @@ void sceneSettings(float t) {
         rowX + 10, 344, 20, GRAY);
     txt("清空后需重启游戏", rowX + 10, 380, 22, ORANGE);
     if (uiButton({ rowX + rowW - 230, 356, 220, 54 }, "清 空 纪 录", RED, false, 22))
-        askClearConfirm();
+        askClearConfirm(t);
 
     if (t - s_clearDoneT < 6.0f)          // 清空完成后提示，强调要重启
         txtS("纪录已清空，请重启游戏以回到初次启动状态。", rowX + 10, 424, 20, GREEN);
 
-    if (uiButton({ VW / 2.0f - 110, VH - 94.0f, 220, 42 }, "返回主菜单", DARKGRAY, false, 20)) {
+    if (uiButton({ VW / 2.0f - 110, 528, 220, 42 }, "返回主菜单", DARKGRAY, false, 20)) {
         playSfx(sfxClick);
         scene = MENU;
     }
@@ -315,18 +359,11 @@ void sceneMenu(float t) {
     bool menuGuide = (!rec.guideMenuDone && rec.tutProgress < 8);
     if (menuGuide) { guideLock = true; guideRect = { 40,596,250,42 }; }
 
-    // ============================================================
-    //  【关键】确认弹窗开着时必须把下层主菜单整体锁掉
-    //  ------------------------------------------------------------
-    //  光画一层半透明遮罩是拦不住点击的 —— uiButton 的命中判定只看
-    //  gMouse 与矩形是否相交（util.cpp），而本函数会把主菜单按钮全部判定
-    //  一遍之后才轮到末尾的 drawClearConfirm()。两者在同一帧里都会看到
-    //  IsMouseButtonPressed 为真，于是会"一次点击触发两个按钮"。
-    //  这里借用现成的 uiLock（原本用于商店弹层）把下层按钮的 hover/click
-    //  一并关掉；弹窗自身的两个按钮在锁置位之后才绘制，所以由
-    //  drawClearConfirm() 在末尾把 uiLock 复位再画。
-    // ============================================================
-    lockUnderDialog();
+    // 说明：清空纪录的确认弹窗只属于设置页（sceneSettings）。主菜单这里**不能**
+    // 调用 lockUnderDialog() —— 那样会在弹窗真的开着（例如从设置页按 H 去规则页、
+    // 弹窗仍处于待命状态）时把 uiLock 一直置位，而主菜单已经不负责画弹窗、
+    // 也就没人会把锁解开，结果是整个主菜单永久失去响应。
+    // uiLock 每帧由 main.cpp 在 PLAY 分支重置（本场景保持 false 即可）。
     txtTitle("量 子 花 园", VW / 2.0f, 26, 58, th.title);
     txtSC(string("Quantum Garden 6.3　·　") + th.label, VW / 2.0f, 96, 20, th.textDim);
 
@@ -389,11 +426,14 @@ void sceneMenu(float t) {
     }
 
     // 主菜单最下方：设置入口（音效开关 / 清空纪录）
-    // 【位置】做成通栏底栏而不是接着左栏往下排：左栏到 686 已经贴到画布底部，
-    // 再往下排就会越出 720 的画布。通栏还有个好处 —— 设置是"全局性"的入口，
+    // 【位置】做成底栏而不是接着左栏往下排：左栏到 686 已经贴到画布底部，
+    // 再往下排就会越出 720 的画布。底栏还有个好处 —— 设置是"全局性"的入口，
     // 与上方那些"进某个玩法/资料页"的按钮在视觉上分开。
-    // 高度 28：692+28 正好落在 720，不需要再动别的元素。
-    if (uiButton({ 40, 692, 1200, 28 }, "设置（音效 / 清空纪录）", DARKGRAY, false, 16)) {
+    // 【宽度 1020 而不是通栏】右下角 y694..716 是 main.cpp 画的音效状态文字
+    // "音效已开启 (M)"（x1070..1229），它是在场景之后绘制的。底栏如果铺到
+    // x=1240 会把这段状态文字压在按钮底色上，所以底栏收在 x=1060 结束，
+    // 与状态文字留出 10px 空档。高度 28：692+28 正好落在 720。
+    if (uiButton({ 40, 692, 1020, 28 }, "设置（音效 / 清空纪录）", DARKGRAY, false, 16)) {
         playSfx(sfxClick);
         scene = SETTINGS;
     }
@@ -480,7 +520,13 @@ void sceneLicense() {
     if (uiButton({ VW - 270.0f,VH - 118.0f,140,40 }, "下一页", DARKGRAY, false, 19, !lastPage))
         ++licensePage;
 
-    if (!rec.licenseAgreed) {
+    // gate=false 表示"本次运行里已经同意过了"，此时即使 rec.licenseAgreed 被
+    // 清空（清档会把它复位）也只提供可返回的浏览模式，避免玩家被关在
+    // 只能"同意"或"退出游戏"的死胡同里。见 s_licenseRevisit 的说明。
+    if (!rec.licenseAgreed) s_licenseRevisit = true;   // 首次启动/清档后本帧确实弹了协议
+    bool gate = !rec.licenseAgreed && !s_licenseRevisit;
+
+    if (gate) {
         if (!lastPage) {
             txt("请翻阅至最后一页后再作出选择。", VW / 2.0f - 220, VH - 62.0f, 19, GRAY);
         } else {

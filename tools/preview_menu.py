@@ -93,7 +93,7 @@ def base_menu(d, muted=False):
     button(d, 40, 596, 250, 42, "继续新手引导 4 / 8", (60, 170, 110), 19)
     button(d, 40, 644, 250, 42, "关于 / 开源许可", SKYBLUE, 18)
     # 本次新增：主菜单最下方的设置入口
-    button(d, 40, 692, 1200, 28, "设置（音效 / 清空纪录）", DARKGRAY, 16)
+    button(d, 40, 692, 1020, 28, "设置（音效 / 清空纪录）", DARKGRAY, 16)
 
     panel(d, 40, 132, 250, 400)
     txt(d, "历史最佳记录", 62, 143, 22, GOLD)
@@ -123,7 +123,7 @@ def base_settings(d, muted=False, cleared=False):
     txt(d, "音效已关闭 (M)" if muted else "音效已开启 (M)", VW - 210, VH - 26, 18,
         GRAY if muted else SKYBLUE)
 
-    panel(d, 140, 60, VW - 280, 540)
+    panel(d, 140, 60, VW - 280, 508)
     txt(d, "设 置", VW / 2, 76, 36, (150, 205, 255), TITLE, center=True)
     txt(d, "设置会即时生效，不需要确认", VW / 2, 126, 19, GRAY, center=True)
 
@@ -148,7 +148,7 @@ def base_settings(d, muted=False, cleared=False):
     if cleared:
         txt(d, "纪录已清空，请重启游戏以回到初次启动状态。", rowX + 10, 424, 20, GREEN)
 
-    button(d, VW / 2 - 110, VH - 94, 220, 42, "返回主菜单", DARKGRAY, 20)
+    button(d, VW / 2 - 110, 528, 220, 42, "返回主菜单", DARKGRAY, 20)
 
 
 def render_menu(path):

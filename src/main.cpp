@@ -31,10 +31,14 @@ static void frameOnce() {
     guideLock = false;   // 每帧先解锁，由当前场景决定是否重新加锁（新手引导）
     (void)debugCheckTimer;
 
+    // 模态弹窗（清空纪录确认框）开着时挡掉 M / H：弹窗是模态的，让音效在
+    // 弹窗背后被悄悄切掉、或者按 H 跳到规则页把待确认的弹窗晾在一边，都会
+    // 让玩家莫名其妙。ESC 与弹窗按钮由弹窗自己处理。
+    bool modal = isModalOpen();
     if (IsKeyPressed(KEY_F11)) toggleFull();
-    if (IsKeyPressed(KEY_M)) muted = !muted;
+    if (IsKeyPressed(KEY_M) && !modal) muted = !muted;
     if (IsKeyPressed(KEY_ESCAPE) && shopOpen) { shopOpen = false; playSfx(sfxClick); }
-    if (IsKeyPressed(KEY_H) && !shopOpen && !(scene == LICENSE && !rec.licenseAgreed)) {
+    if (IsKeyPressed(KEY_H) && !modal && !shopOpen && !(scene == LICENSE && !rec.licenseAgreed)) {
         if (scene != HELP) { prevScene = scene; scene = HELP; } else scene = prevScene;
     }
     updateAmbient();
@@ -90,8 +94,15 @@ static void frameOnce() {
         EndMode2D();
     EndTextureMode();
 
-    // 首次进入游戏的新手引导：一旦离开主菜单就视为看过
-    if (!rec.guideMenuDone && scene != MENU) { rec.guideMenuDone = true; saveRecords(); }
+    // 首次进入游戏的新手引导：离开主菜单去玩（或去教程）就视为看过。
+    // 【为什么排除 LICENSE / SETTINGS】这两个场景只是"查看类"页面，不能算
+    // "已经开始玩了"。尤其是清空纪录之后：clearAllRecords() 会把
+    // guideMenuDone 复位，如果玩家清完档还停在设置页（或翻了下协议页）就被
+    // 标记成"看过引导"，那么重启之后引导高亮再也不会出现 —— 而清档的确认
+    // 弹窗里恰好向玩家承诺了"重新弹出用户协议与新手引导"，会变成半句假话。
+    if (!rec.guideMenuDone && scene != MENU && scene != LICENSE && scene != SETTINGS) {
+        rec.guideMenuDone = true; saveRecords();
+    }
 
     float ox = (randF() - 0.5f) * shake, oy = (randF() - 0.5f) * shake;
     BeginDrawing();
@@ -204,10 +215,14 @@ int main() {
             if (isDebuggerPresentCheck()) { shouldQuit = true; break; }
         }
 
+        // 模态弹窗（清空纪录确认框）开着时挡掉 M / H：弹窗是模态的，让音效在
+        // 弹窗背后被悄悄切掉、或者按 H 跳到规则页把待确认的弹窗晾在一边，都会
+        // 让玩家莫名其妙。ESC 与弹窗按钮由弹窗自己处理。
+        bool modal = isModalOpen();
         if (IsKeyPressed(KEY_F11)) toggleFull();
-        if (IsKeyPressed(KEY_M)) muted = !muted;
+        if (IsKeyPressed(KEY_M) && !modal) muted = !muted;
         if (IsKeyPressed(KEY_ESCAPE) && shopOpen) { shopOpen = false; playSfx(sfxClick); }
-        if (IsKeyPressed(KEY_H) && !shopOpen && !(scene == LICENSE && !rec.licenseAgreed)) {
+        if (IsKeyPressed(KEY_H) && !modal && !shopOpen && !(scene == LICENSE && !rec.licenseAgreed)) {
             if (scene != HELP) { prevScene = scene; scene = HELP; } else scene = prevScene;
         }
         updateAmbient();
@@ -262,8 +277,15 @@ int main() {
             EndMode2D();
         EndTextureMode();
 
-        // 首次进入游戏的新手引导：一旦离开主菜单就视为看过
-        if (!rec.guideMenuDone && scene != MENU) { rec.guideMenuDone = true; saveRecords(); }
+        // 首次进入游戏的新手引导：离开主菜单去玩（或去教程）就视为看过。
+        // 【为什么排除 LICENSE / SETTINGS】这两个场景只是"查看类"页面，不能算
+        // "已经开始玩了"。尤其是清空纪录之后：clearAllRecords() 会把
+        // guideMenuDone 复位，如果玩家清完档还停在设置页（或翻了下协议页）就被
+        // 标记成"看过引导"，那么重启之后引导高亮再也不会出现 —— 而清档的确认
+        // 弹窗里恰好向玩家承诺了"重新弹出用户协议与新手引导"，会变成半句假话。
+        if (!rec.guideMenuDone && scene != MENU && scene != LICENSE && scene != SETTINGS) {
+            rec.guideMenuDone = true; saveRecords();
+        }
 
         float ox = (randF() - 0.5f) * shake, oy = (randF() - 0.5f) * shake;
         BeginDrawing();
