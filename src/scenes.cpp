@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  scenes.cpp  各界面（场景）绘制实现
 //  【维护说明】成就墙卡片曾经把"已得装扮"文字与"豪华界面已解锁"文字
 //  画在完全相同的坐标 (x+300, y+7)，导致终极成就那一行文字互相重叠。
@@ -174,12 +174,88 @@ static bool tutorialGuide(Rectangle& outR, string& outT) {
     return false;
 }
 
+// ============================================================
+//  【清空设置】二次确认弹窗
+//  ------------------------------------------------------------
+//  清空游戏纪录会连同分数、成就、装扮、星尘、升级、教程进度与全部对局
+//  存档槽位一起抹掉，且游戏内没有任何备份手段 —— 属于不可撤销的破坏性
+//  操作，所以先弹这个遮罩对话框，必须再点一次"确认清空"才真正执行。
+//
+//  交互约定：
+//    - 点"取消"或按 ESC = 放弃（ESC 在 main.cpp 里只用于关闭商店，这里
+//      单独接收，不会冲突）
+//    - 点"确认清空" = 执行 clearAllRecords()，随后回到主菜单。
+//      rec 复位后 licenseAgreed=false、guideMenuDone=false，等同于第一次
+//      打开游戏：下次启动会重新弹出用户协议，并重新触发新手引导。
+// ============================================================
+static bool s_clearConfirm = false;   // 弹窗是否显示
+static float s_clearDoneT = -99.0f;   // 上次清空完成的时刻（用于主菜单提示）
+
+static void drawClearConfirm(float t) {
+    // 先解除 uiLock —— sceneMenu 在弹窗打开期间把它置位，用来封掉下层主菜单的
+    // 全部按钮（原因见 sceneMenu 里的长注释）。弹窗自己的两个按钮要能点，
+    // 所以在这里复位；复位后 uiButton 内部也不会再把它设回 true。
+    uiLock = false;
+
+    // 全屏遮罩，只负责"看起来"压暗下层
+    DrawRectangle(0, 0, VW, VH, Fade(BLACK, 0.72f));
+
+    // 【面板宽度】按真实字号量过：最长的两行分别是
+    //   "分数纪录 · 成就 · 装扮 · 星尘 · 升级 · 教程与引导进度 · 全部对局存档" ≈ 880px
+    //   "清空后回到第一次打开游戏的状态：重新弹出用户协议与新手引导。"     ≈ 731px
+    // 原来的 620 宽会把这两行顶出面板两侧（各溢出约 130px / 56px），所以
+    // 面板加宽到 940，两行都留出 30px 以上内边距。
+    const float boxW = 940, boxH = 320;
+    Rectangle box = { (VW - boxW) / 2.0f, (VH - boxH) / 2.0f - 20.0f, boxW, boxH };
+    uiPanel(box, 0.06f);
+    // 红色描边呼应"危险操作"；不做呼吸闪烁 —— 破坏性提示保持稳定更易读
+    DrawRectangleRoundedLines(box, 0.06f, 10, Fade(RED, 0.85f));
+
+    txtTitle("清 空 游 戏 纪 录", VW / 2.0f, box.y + 24, 30, RED, false);
+    txtC("将永久删除以下全部内容，且无法恢复：", VW / 2.0f, box.y + 86, 20, RAYWHITE);
+    txtC("分数纪录 · 成就 · 装扮 · 星尘 · 升级 · 教程与引导进度 · 全部对局存档",
+         VW / 2.0f, box.y + 120, 20, GOLD);
+    txtC("清空后回到第一次打开游戏的状态：重新弹出用户协议与新手引导。",
+         VW / 2.0f, box.y + 154, 19, SKYBLUE);
+    txtC("旧版本存档格式不兼容时，用这里清空即可解决冲突。",
+         VW / 2.0f, box.y + 184, 19, GRAY);
+
+    if (uiButton({ box.x + 60, box.y + boxH - 64, 230, 46 }, "取消", DARKGRAY, false, 21) ||
+        IsKeyPressed(KEY_ESCAPE)) {
+        s_clearConfirm = false;
+        playSfx(sfxClick);
+    }
+    if (uiButton({ box.x + boxW - 290, box.y + boxH - 64, 230, 46 }, "确认清空", RED, false, 21)) {
+        clearAllRecords();
+        s_clearConfirm = false;
+        s_clearDoneT = t;
+        playSfx(sfxClick);
+    }
+}
+
 // ==================== 场景：主菜单 ====================
 void sceneMenu(float t) {
     const ThemeStyle& th = curTheme();
     // 首次进入游戏的新手引导：锁定交互，只允许点击高亮的"新手引导"按钮
     bool menuGuide = (!rec.guideMenuDone && rec.tutProgress < 8);
     if (menuGuide) { guideLock = true; guideRect = { 40,596,250,42 }; }
+
+    // ============================================================
+    //  【关键】确认弹窗开着时必须把下层主菜单整体锁掉
+    //  ------------------------------------------------------------
+    //  光画一层半透明遮罩是拦不住点击的 —— uiButton 的命中判定只看
+    //  gMouse 与矩形是否相交（util.cpp），而本函数会把 12 个主菜单按钮全部
+    //  判定一遍之后才轮到末尾的 drawClearConfirm()。两者在同一帧里都会看到
+    //  IsMouseButtonPressed 为真，于是：
+    //    · "取消"(390..620, 426..472) 与"无尽模式"(440..840, 396..442) 相交
+    //      -> 点取消会顺手开一局无尽模式
+    //    · "确认清空"与"每日挑战"(440..840, 452..498) 相交
+    //      -> 点确认会先开一局每日挑战，再在局中清档
+    //  这里借用现成的 uiLock（原本用于商店弹层）把下层按钮的 hover/click
+    //  一并关掉；弹窗自身的两个按钮在锁置位之后才绘制，所以由
+    //  drawClearConfirm() 在末尾把 uiLock 复位再画。
+    // ============================================================
+    if (s_clearConfirm) uiLock = true;
     txtTitle("量 子 花 园", VW / 2.0f, 26, 58, th.title);
     txtSC(string("Quantum Garden 6.3　·　") + th.label, VW / 2.0f, 96, 20, th.textDim);
 
@@ -241,6 +317,22 @@ void sceneMenu(float t) {
         aboutPage = 0; aboutScroll = 0; scene = ABOUT; playSfx(sfxClick);
     }
 
+    // 主菜单最下方：清空设置（清空全部游戏纪录，回到首次启动状态）
+    // 【布局】做成通栏底栏，而不是接着左栏往下排：左栏到 686 已经贴到画布
+    // 底部，再往下排就会越出 720（实测 y=692+34 会被裁掉 6px）。通栏还有个
+    // 好处 —— 破坏性操作与上方的浏览类按钮在视觉上分开。
+    // 配色保持 DARKGRAY 安静，红色警示留给弹窗里的"确认清空"。
+    bool clearHover = uiButton({ 40, 692, 1200, 28 }, "清空设置（游戏纪录）", DARKGRAY, false, 16);
+    // 【提示位置】清空后的短暂提示只能放在这条底栏内部：底栏上方从左到右依次
+    // 是"关于 / 开源许可"(644~686)、"继续新手引导"(596~638)，右下角还有
+    // "音效已开启 (M)"。放到 y=666 会正好压在"关于 / 开源许可"按钮上；放到
+    // 按钮文字左边又会和居中的"清空设置（游戏纪录）"标签重叠 —— 两个位置
+    // 都是按真实字号量过宽度之后才定的，所以最终放在按钮标签右侧、音效文字
+    // 左侧这段空档里。
+    if (t - s_clearDoneT < 5.0f)
+        txtS("已清空游戏纪录，回到初次启动状态。", 760, 697, 14, GREEN);
+    if (clearHover) s_clearConfirm = true;
+
     uiPanel({ 40,132,250,400 }, 0.06f);
     txtS("历史最佳记录", 62, 143, 22, GOLD);
     txt("教程进度：" + to_string(rec.tutProgress) + " / 8 关", 62, 175, 18, GREEN);
@@ -267,6 +359,12 @@ void sceneMenu(float t) {
 
     if (menuGuide)
         drawGuideFocus({ 40,596,250,42 }, "欢迎来到量子花园！点这里开始【新手引导】，跟着提示一步步学", t);
+
+    // 确认弹窗必须最后绘制，才能盖住上面所有元素并拦住对下层按钮的点击。
+    // 注意：这里不需要再判断新手引导锁 —— guideLock 的作用范围见 util.cpp 的
+    // guideAllows()，它按"控件矩形是否与高亮区重叠"放行，不会因为多画一层
+    // 遮罩就失效。
+    if (s_clearConfirm) drawClearConfirm(t);
 }
 
 // ==================== 场景：规则 ====================

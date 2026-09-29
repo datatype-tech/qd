@@ -19,6 +19,11 @@ static const char* SAVE_TAG = "QGSAVE";
 static const int   SAVE_VER = 610;
 bool saveWasLegacy = false;
 
+// 前置声明：批量删除槽位文件 + 对局存档落盘（定义在下方 runPath 之后）。
+// clearAllRecords() 需要它们做"一次删完、只落盘一次"的批量删除。
+static void removeRunFiles(int slot);
+static void syncRunStore();
+
 void loadRecords() {
     rec = Records{};                    // 先恢复默认，避免残留脏数据
     rec.skinUnlocked[0] = true;
@@ -91,6 +96,47 @@ void resetAchievements() {
     rec.luxUnlocked = false; rec.luxOn = true;
 }
 
+// ============================================================
+//  清空游戏纪录：把玩家档案与全部对局存档一次性抹掉
+//  ------------------------------------------------------------
+//  【为什么需要它】旧版本存档的字段数量与 610 不同，loadRecords() 检测到
+//  版本号不匹配会判定为 legacy 并整体拒读（否则按位读会串位，把分数、星尘
+//  误读成"成就已解锁"）。玩家升级后如果留下旧档案，就会一直卡在不可用的
+//  状态里；本函数提供出口：删掉冲突的旧档案，从零重新开始。
+//
+//  清空范围：
+//    - qgarden_record.txt     玩家档案（分数/成就/装扮/星尘/升级/每日/曲线/
+//                             教程进度/引导标记/协议同意标记）
+//    - qg_run_1..10.txt       全部对局存档槽位
+//    - qg_run.txt             兼容槽位 1 的旧文件名
+//  清空后 rec 取 Records{} 默认值，其中 licenseAgreed=false、guideMenuDone=false
+//  正是"第一次打开游戏"的状态，因此下次启动会重新弹出用户协议与新手引导。
+// ============================================================
+void clearAllRecords() {
+    // 先删掉全部对局存档槽位，避免主菜单继续显示"继续游戏 N/10"。
+    // 这里用不带同步的 removeRunFiles()，10 个槽位删完只落盘一次 ——
+    // 网页版每次 syncRunStore() 都是一次异步 FS.syncfs，逐个同步会一次排进
+    // 10 次（见 removeRunFiles 的注释）。
+    for (int s = 1; s <= RUN_SLOTS; ++s) removeRunFiles(s);
+    syncRunStore();
+
+    rec = Records{};                 // 全部字段回到初始值（含 licenseAgreed=false）
+    rec.skinUnlocked[0] = true;      // 初始装扮：第一款默认解锁
+    curRunSlot = 0;
+    saveWasLegacy = false;           // 旧档案已被删除，冲突解除
+
+    // 写回一份全新的初始档案：这样即使玩家清空后直接关掉游戏（主循环末尾
+    // 的 saveRecords() 没来得及跑），磁盘上留下的也是干净的初始档案。
+    saveRecords();
+
+#ifdef __EMSCRIPTEN__
+    // 网页版：删除文件后必须再同步一次 IDBFS，否则 IndexedDB 里还留着旧档案，
+    // 刷新页面就会"复活"。saveRecords() 的同步有 800ms 防抖，这里立即落盘，
+    // 保证删除动作持久化。
+    EM_ASM({ FS.syncfs(false, function(err){ if (err) console.log('[QG] 清空纪录落盘失败:', err); }); });
+#endif
+}
+
 void saveRecords() {
     std::ofstream f("qgarden_record.txt");
     f << SAVE_TAG << " " << SAVE_VER << "\n";
@@ -148,6 +194,19 @@ static void syncRunStore() {
 #endif
 }
 
+// 只删文件、不落盘：给"一次性删很多槽位"的场合用。
+// 网页版每个 syncRunStore() 都是一次异步 FS.syncfs；清空纪录要连删 10 个槽位
+// （文件还可能本来就不存在），逐个同步会一口气排进 10 次 syncfs，正是
+// saveRecords() 注释里想避免的 "FS.syncfs operations in flight" 情形。
+// 所以批量删除走这个函数，最后统一同步一次。
+static void removeRunFiles(int slot) {
+    for (int cand = 0; cand < 2; ++cand) {
+        if (cand == 1 && slot != 1) break;             // 仅槽位 1 兼容旧文件名
+        char path[64]; runPath(slot, cand, path, sizeof(path));
+        std::remove(path);
+    }
+}
+
 bool hasSavedRun(int slot) {
     for (int cand = 0; cand < 2; ++cand) {
         if (cand == 1 && slot != 1) break;             // 仅槽位 1 兼容旧文件名
@@ -185,11 +244,7 @@ int usedSlotCount() {
 }
 
 void clearRunSave(int slot) {
-    for (int cand = 0; cand < 2; ++cand) {
-        if (cand == 1 && slot != 1) break;
-        char path[64]; runPath(slot, cand, path, sizeof(path));
-        std::remove(path);
-    }
+    removeRunFiles(slot);
     syncRunStore();
 }
 

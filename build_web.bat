@@ -7,7 +7,7 @@ REM    1. Emscripten SDK at D:\emsdk (uses portable Python 3.12 at
 REM       D:\emsdk_dl\py312 because emsdk needs Python >= 3.10)
 REM    2. Web raylib static lib already built:
 REM       D:\emsdk_dl\raylib_x\raylib-5.5\src\libraylib.a
-REM  Output: web\game_v12.js + game_v12.wasm + game_v12.data
+REM  Output: web\game_v29.js + game_v29.wasm + game_v29.data
 REM  Update web\site.html when bumping the version, then copy it to index.html.
 REM  Run after build: run_web.bat
 REM ============================================================
@@ -32,7 +32,7 @@ cd /d %~dp0
   src\main.cpp src\data.cpp src\state.cpp src\audio.cpp src\util.cpp ^
   src\save.cpp src\achievements.cpp src\render.cpp src\game.cpp src\scenes.cpp ^
   -I%RAYLIB_DIR% -L%RAYLIB_DIR% -lraylib ^
-  -o web\game_v12.js ^
+  -o web\game_v29.js ^
   --preload-file web\fonts\font.ttf@/fonts/font.ttf ^
   --preload-file web\fonts\font_title.ttf@/fonts/font_title.ttf ^
   --preload-file web\text.bin@/data/text.bin ^
