@@ -19,3 +19,4 @@ void scenePlay(float dt, float t);
 void sceneResult(float t);
 void sceneSlots();
 void sceneAbout();
+void sceneSettings(float t);

@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  main.cpp  量子花园 6.3  Quantum Garden（网页版适配）
 //  桌面版：与原版完全一致的初始化 + while 主循环
 //  网页版：Emscripten 环境 —— 先把 IndexedDB 存档同步进虚拟文件系统，
@@ -75,6 +75,7 @@ static void frameOnce() {
         else if (scene == LICENSE)   sceneLicense();
         else if (scene == SLOTS)     sceneSlots();
         else if (scene == ABOUT)     sceneAbout();
+        else if (scene == SETTINGS)  sceneSettings(gTime);
         else if (scene == PLAY) {
             uiLock = shopOpen;
             scenePlay(dt, gTime);
@@ -246,6 +247,7 @@ int main() {
             else if (scene == LICENSE)   sceneLicense();
             else if (scene == SLOTS)     sceneSlots();
         else if (scene == ABOUT)     sceneAbout();
+        else if (scene == SETTINGS)  sceneSettings(gTime);
             else if (scene == PLAY) {
                 uiLock = shopOpen;
                 scenePlay(dt, gTime);

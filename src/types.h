@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  types.h  基础枚举 / 结构 / 常量定义
 //  被所有模块共享，必须最先包含
 // ============================================================
@@ -30,7 +30,9 @@ struct FloatTxt { Vector2 pos; string text; Color col; float life, size; };
 struct Particle { Vector2 pos, vel; float life, maxLife, size; Color col; };
 struct Shock { Vector2 pos; float r, maxR, life; Color col; };
 
-enum Scene { MENU, HELP, PLAY, RESULT, TUT_SEL, TUT_BRIEF, ACHIEVE, SKINSEL, META, STATS, LICENSE, SLOTS, ABOUT };
+// SETTINGS 追加在末尾：Scene 的值可能被存档/调试代码按序号引用，新增枚举
+// 一律往后加，避免打乱既有顺序。
+enum Scene { MENU, HELP, PLAY, RESULT, TUT_SEL, TUT_BRIEF, ACHIEVE, SKINSEL, META, STATS, LICENSE, SLOTS, ABOUT, SETTINGS };
 enum Tool { T_PLANT, T_OBSERVE, T_ENTANGLE };
 enum Mode { M_CLASSIC, M_ENDLESS, M_TUTORIAL, M_DAILY };
 
